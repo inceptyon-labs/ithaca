@@ -1,0 +1,291 @@
+import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
+
+struct SearchView: View {
+    @Binding var path: NavigationPath
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            SearchRootContent()
+                .ithacaAppNavigationDestinations()
+        }
+    }
+}
+
+/// The search screen without its own `NavigationStack`, usable both as the
+/// tvOS Search tab root and as an iPhone/iPad toolbar destination.
+struct SearchRootContent: View {
+    @Environment(PlexService.self) private var plexService
+    @Environment(SeerrService.self) private var seerrService
+    @State private var viewModel: SearchViewModel?
+    @State private var isSearchPresented = false
+
+    private let searchPrompt = "Movies, Shows, Actors..."
+
+    var body: some View {
+        ZStack {
+            Color.ithacaBackground.ignoresSafeArea()
+
+            if let viewModel {
+                searchContent(viewModel)
+            }
+        }
+        .ithacaNavigationTitle("Search")
+        .ithacaNavigationBarTitleDisplayModeLarge()
+        .onAppear {
+            if viewModel == nil {
+                viewModel = SearchViewModel(
+                    plexService: plexService,
+                    seerrService: seerrService
+                )
+                #if DEBUG
+                if let query = ScreenshotMode.searchQuery, let viewModel {
+                    viewModel.query = query
+                    viewModel.searchDebounced()
+                    ScreenshotMode.presentSearchField($isSearchPresented)
+                }
+                #endif
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func searchContent(_ vm: SearchViewModel) -> some View {
+        platformResults(vm)
+            .onChange(of: vm.query) {
+                vm.searchDebounced()
+            }
+            // A server connecting or dropping changes what "search" even means,
+            // so the current query is run again against the new set. The task
+            // also runs each time Search reappears, which alone re-runs nothing.
+            .task(id: plexService.serverContentRevision) {
+                vm.rerunIfServersChanged()
+            }
+    }
+
+    /// Picks the result layout that feels native to each platform:
+    /// - tvOS and iPad (regular width) render the same poster carousels the Home
+    ///   screen uses for hubs.
+    /// - iPhone (compact width) renders a poster grid, matching the library grid
+    ///   and how media apps present search on a narrow screen.
+    @ViewBuilder
+    private func platformResults(_ vm: SearchViewModel) -> some View {
+        @Bindable var vm = vm
+
+        #if os(tvOS)
+        carouselResults(vm)
+            .searchable(text: $vm.query, prompt: searchPrompt)
+        #else
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            carouselResults(vm)
+                .searchable(
+                    text: $vm.query,
+                    isPresented: $isSearchPresented,
+                    placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: searchPrompt
+                )
+        } else {
+            gridResults(vm)
+                .searchable(text: $vm.query, isPresented: $isSearchPresented, prompt: searchPrompt)
+        }
+        #endif
+    }
+}
+
+struct SearchToolbarLink: View {
+    var body: some View {
+        NavigationLink(value: AppNavigationRoute.search) {
+            Image(systemName: "magnifyingglass")
+                .symbolRenderingMode(.monochrome)
+                .foregroundStyle(Color.primary)
+        }
+        .tint(Color.primary)
+        .accessibilityLabel("Search")
+    }
+}
+
+// MARK: - Shared Results
+
+private extension SearchRootContent {
+    /// Wraps the populated results with the shared loading / error / empty states
+    /// so every platform reports state the same way.
+    @ViewBuilder
+    func searchResults<Content: View>(
+        _ vm: SearchViewModel,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let availability = plexService.pool.availability
+
+        if vm.results.isEmpty, !availability.isReady {
+            // Nothing can be searched yet, and the reason is the servers.
+            ServerAvailabilityStateView(availability: availability)
+        } else if vm.isSearching && vm.results.isEmpty {
+            FeatureLoadingView()
+        } else if let error = vm.error, vm.results.isEmpty {
+            FeatureErrorView(message: error) {
+                vm.searchDebounced()
+            }
+        } else if vm.hasSearched && vm.results.isEmpty {
+            FeatureEmptyStateView(
+                systemImage: "film.stack",
+                title: "No results found",
+                message: "Try a different title, show, or actor."
+            )
+        } else if vm.results.isEmpty {
+            FeatureEmptyStateView(
+                systemImage: "magnifyingglass",
+                title: "Search your Plex library",
+                message: "Find movies, shows, episodes, and people."
+            )
+        } else {
+            content()
+        }
+    }
+
+    /// Poster carousels, one per Plex search hub. Used by tvOS and iPad. Plex
+    /// `/hubs/search` caps each type at 10 items, so a group maps onto a single
+    /// focusable carousel row.
+    @ViewBuilder
+    func carouselResults(_ vm: SearchViewModel) -> some View {
+        searchResults(vm) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: IthacaPosterMetrics.pageSectionSpacing) {
+                    ServerOutageNote(
+                        offlineServerNames: plexService.pool.availability.offlineServerNames
+                    )
+                    .padding(.horizontal, IthacaPosterMetrics.carouselHorizontalPadding)
+
+                    ForEach(vm.results) { group in
+                        let isVideoGroup = group.isAllClips
+                        let width = isVideoGroup
+                            ? IthacaPosterMetrics.videoCarouselWidth
+                            : IthacaPosterMetrics.carouselPosterWidth
+                        let aspectRatio = isVideoGroup ? 16.0 / 9.0 : 2.0 / 3.0
+                        let imageSize = PlexItemPosterCarouselSection<EmptyView>.imagePixelSize(
+                            posterWidth: width,
+                            imageAspectRatio: aspectRatio
+                        )
+
+                        MediaCarousel(title: group.title) {
+                            ForEach(group.items) { item in
+                                PosterNavigationCard(
+                                    route: item.route,
+                                    imageURL: vm.imageURL(
+                                        for: item,
+                                        width: imageSize.width,
+                                        height: imageSize.height
+                                    ),
+                                    title: item.title,
+                                    subtitle: item.subtitle,
+                                    progress: item.progress,
+                                    width: width,
+                                    imageAspectRatio: aspectRatio,
+                                    availabilityBadge: vm.availabilityBadge(for: item)
+                                )
+                            }
+                        }
+                    }
+                }
+                .padding(.top, IthacaPosterMetrics.pageSectionSpacing)
+                .padding(.bottom, IthacaPosterMetrics.pageBottomPadding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #if os(tvOS)
+                .focusSection()
+                #endif
+            }
+            #if os(tvOS)
+            .scrollClipDisabled()
+            #endif
+            .scrollIndicators(.hidden)
+        }
+    }
+}
+
+// MARK: - iPhone Grid Results
+
+#if os(iOS)
+private extension SearchRootContent {
+    /// Poster grid, one titled section per search hub. Used on iPhone, where a
+    /// grid reads more naturally than carousels on a narrow screen and matches
+    /// the library grid.
+    @ViewBuilder
+    func gridResults(_ vm: SearchViewModel) -> some View {
+        searchResults(vm) {
+            GeometryReader { geometry in
+                let layout = AdaptivePosterGridLayout.make(
+                    containerWidth: geometry.size.width,
+                    horizontalPadding: IthacaPosterMetrics.gridHorizontalPadding,
+                    gridSpacing: IthacaPosterMetrics.gridSpacing,
+                    preferredPosterWidth: IthacaPosterMetrics.gridPreferredWidth,
+                    minimumColumnCount: 3
+                )
+                // All-clip groups use the wider 16:9 video layout that matches
+                // the video library grid (~2 columns on iPhone).
+                let videoLayout = AdaptivePosterGridLayout.make(
+                    containerWidth: geometry.size.width,
+                    horizontalPadding: IthacaPosterMetrics.gridHorizontalPadding,
+                    gridSpacing: IthacaPosterMetrics.gridSpacing,
+                    preferredPosterWidth: IthacaPosterMetrics.videoGridPreferredWidth,
+                    minimumColumnCount: 2
+                )
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 28) {
+                        ServerOutageNote(
+                            offlineServerNames: plexService.pool.availability.offlineServerNames
+                        )
+                        .padding(.horizontal, IthacaPosterMetrics.gridHorizontalPadding)
+
+                        ForEach(vm.results) { group in
+                            let isVideoGroup = group.isAllClips
+
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(group.title)
+                                    .font(.title3.bold())
+                                    .foregroundStyle(Color.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                let activeLayout = isVideoGroup ? videoLayout : layout
+                                let aspectRatio = isVideoGroup ? 16.0 / 9.0 : 2.0 / 3.0
+                                let imageSize = PlexItemPosterCarouselSection<EmptyView>.imagePixelSize(
+                                    posterWidth: activeLayout.posterWidth,
+                                    imageAspectRatio: aspectRatio
+                                )
+
+                                LazyVGrid(
+                                    columns: activeLayout.columns,
+                                    alignment: .leading,
+                                    spacing: IthacaPosterMetrics.gridRowSpacing
+                                ) {
+                                    ForEach(group.items) { item in
+                                        PosterNavigationCard(
+                                            route: item.route,
+                                            imageURL: vm.imageURL(
+                                                for: item,
+                                                width: imageSize.width,
+                                                height: imageSize.height
+                                            ),
+                                            title: item.title,
+                                            subtitle: item.subtitle,
+                                            progress: item.progress,
+                                            width: activeLayout.posterWidth,
+                                            imageAspectRatio: aspectRatio,
+                                            availabilityBadge: vm.availabilityBadge(for: item)
+                                        )
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, IthacaPosterMetrics.gridHorizontalPadding)
+                        }
+                    }
+                    .padding(.top, 12)
+                    .padding(.bottom, 24)
+                }
+                .scrollIndicators(.hidden)
+            }
+        }
+    }
+}
+#endif

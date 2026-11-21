@@ -1,0 +1,220 @@
+import SwiftUI
+
+struct ActorDetailView: View {
+    @State private var viewModel: ActorDetailViewModel
+
+    private let horizontalPadding: CGFloat = IthacaPosterMetrics.detailHorizontalPadding
+    private let gridSpacing: CGFloat = {
+        #if os(tvOS)
+        IthacaPosterMetrics.gridSpacing
+        #else
+        IthacaPosterMetrics.detailGridSpacing
+        #endif
+    }()
+    private let preferredPosterWidth: CGFloat = {
+        #if os(tvOS)
+        IthacaPosterMetrics.gridPreferredWidth
+        #else
+        IthacaPosterMetrics.detailGridPreferredWidth
+        #endif
+    }()
+    private let minimumColumnCount = 2
+
+    init(person: PlexPersonReference, serverID: String? = nil, plexService: PlexService) {
+        _viewModel = State(initialValue: ActorDetailViewModel(
+            person: person,
+            serverID: serverID,
+            plexService: plexService
+        ))
+    }
+
+    var body: some View {
+        ZStack {
+            Color.ithacaBackground.ignoresSafeArea()
+
+            if viewModel.isLoading && viewModel.filmography.isEmpty {
+                FeatureLoadingView()
+            } else if let error = viewModel.error, viewModel.filmography.isEmpty {
+                FeatureErrorView(message: error) {
+                    Task { await viewModel.load() }
+                }
+            } else {
+                contentView
+            }
+        }
+        .ithacaNavigationBarTitleDisplayModeInline()
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .task {
+            await viewModel.load()
+        }
+    }
+
+    private var contentView: some View {
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                        .padding(.horizontal, horizontalPadding)
+                        .padding(.top, 36)
+
+                    if !viewModel.movies.isEmpty {
+                        filmographySection(
+                            title: "Movies",
+                            items: viewModel.movies,
+                            width: geometry.size.width
+                        )
+                    }
+
+                    if !viewModel.shows.isEmpty {
+                        filmographySection(
+                            title: "Shows",
+                            items: viewModel.shows,
+                            width: geometry.size.width
+                        )
+                    }
+
+                    if viewModel.movies.isEmpty && viewModel.shows.isEmpty && !viewModel.isLoading {
+                        emptyState
+                            .padding(.horizontal, horizontalPadding)
+                    }
+                }
+                .padding(.bottom, 56)
+            }
+            .scrollIndicators(.hidden)
+            #if os(tvOS)
+            .scrollClipDisabled()
+            #endif
+        }
+    }
+
+    private var header: some View {
+        let artworkSize: CGFloat = {
+            #if os(tvOS)
+            160
+            #else
+            120
+            #endif
+        }()
+        let headerSpacing: CGFloat = {
+            #if os(tvOS)
+            32
+            #else
+            20
+            #endif
+        }()
+
+        return HStack(alignment: .center, spacing: headerSpacing) {
+            personArtwork(size: artworkSize)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(viewModel.person.name)
+                    .font(IthacaFont.pageTitle(ios: .title2.bold()))
+                    .foregroundStyle(Color.primary)
+                    .multilineTextAlignment(.leading)
+
+                if let roleName = viewModel.person.roleName, !roleName.isEmpty {
+                    Text(roleName)
+                        .font(IthacaFont.metadata(ios: .subheadline))
+                        .foregroundStyle(Color.primary.opacity(0.78))
+                }
+
+                Text(viewModel.creditSummary)
+                    .font(IthacaFont.caption(ios: .subheadline))
+                    .foregroundStyle(Color.primary.opacity(0.76))
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    @ViewBuilder
+    private func personArtwork(size: CGFloat) -> some View {
+        let imageSize = Int(size.rounded())
+        let artworkShape = RoundedRectangle(cornerRadius: PosterArtwork.cornerRadius, style: .continuous)
+
+        if let imageURL = viewModel.personImageURL(size: imageSize) {
+            IthacaAsyncImage(url: imageURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                default:
+                    personPlaceholder(size: size)
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(artworkShape)
+        } else {
+            personPlaceholder(size: size)
+                .frame(width: size, height: size)
+                .clipShape(artworkShape)
+        }
+    }
+
+    private func personPlaceholder(size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: PosterArtwork.cornerRadius, style: .continuous)
+                .fill(Color.ithacaSurface)
+
+            Image(systemName: "person.fill")
+                .font(.system(size: size * 0.30, weight: .regular))
+                .foregroundStyle(Color.ithacaTextSecondary)
+        }
+    }
+
+    @ViewBuilder
+    private func filmographySection(title: String, items: [PlexItem], width: CGFloat) -> some View {
+        let layout = AdaptivePosterGridLayout.make(
+            containerWidth: width,
+            horizontalPadding: horizontalPadding,
+            gridSpacing: gridSpacing,
+            preferredPosterWidth: preferredPosterWidth,
+            minimumColumnCount: minimumColumnCount
+        )
+        let sectionSpacing: CGFloat = {
+            #if os(tvOS)
+            24
+            #else
+            16
+            #endif
+        }()
+
+        VStack(alignment: .leading, spacing: sectionSpacing) {
+            Text(title)
+                .font(sectionTitleFont)
+                .foregroundStyle(Color.primary)
+                .padding(.horizontal, horizontalPadding)
+
+            PlexItemPosterGrid(
+                items: items,
+                layout: layout,
+                posterURL: { item, width, height in
+                    viewModel.posterURL(for: item, width: width, height: height)
+                },
+                subtitle: { viewModel.subtitle(for: $0) }
+            )
+            .padding(.horizontal, horizontalPadding)
+        }
+    }
+
+    private var sectionTitleFont: Font {
+        IthacaFont.sectionHeader(ios: .headline)
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No titles found")
+                .font(IthacaFont.rowTitle(ios: .headline))
+                .foregroundStyle(Color.primary)
+
+            Text("This actor doesn't have any movies or shows available in your connected Plex library.")
+                .font(IthacaFont.caption(ios: .subheadline))
+                .foregroundStyle(Color.primary.opacity(0.76))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(20)
+        .background(Color.ithacaSurface, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+}

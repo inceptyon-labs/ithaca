@@ -1,0 +1,13 @@
+Key art: the pictures the app shows on each captured screen, read from the demo Plex server (Ithaca Demo libraries)
+or, for the Seerr slide, TMDB's original of the backdrop Seerr shows. All are Blender Studio open movies.
+sintel.jpg	Sintel (2010), Plex backgroundSquare art. © Blender Foundation, CC BY 3.0
+tos-art.jpg	Tears of Steel (2012), Plex background art. © Blender Foundation, CC BY 3.0
+tos-square.jpg	Tears of Steel (2012), Plex backgroundSquare art. © Blender Foundation, CC BY 3.0
+daily-dweebs.jpg	The Daily Dweebs (2017), TMDB backdrop sed3rYCcwlEW6llZWw8xLgfmFnx. © Blender Foundation, CC BY 4.0
+coffee-run.jpg	Coffee Run (2020), Plex background art. © Blender Foundation, CC BY 4.0
+spring-art.jpg	Spring (2019), Plex background art. © Blender Foundation, CC BY 4.0
+caminandes-ep2.jpg	Caminandes: Gran Dillama (2013), Plex episode still. © Blender Foundation, CC BY 3.0
+sintel-art.jpg	Sintel (2010), Plex background art (16:9), for iPad. © Blender Foundation, CC BY 3.0
+caminandes-art.jpg	Caminandes: Gran Dillama (2013), TMDB backdrop 206A3X9EH42kmdQMECq90SbjHCn, set as the Caminandes show art. © Blender Foundation, CC BY 3.0
+tos-skyline.jpg	Tears of Steel (2012), frame at 5:30 of the 4K file (3840x1714), for the header. © Blender Foundation, CC BY 3.0
+coffee-run-poster.jpg	Coffee Run (2020), Plex poster. © Blender Foundation, CC BY 4.0

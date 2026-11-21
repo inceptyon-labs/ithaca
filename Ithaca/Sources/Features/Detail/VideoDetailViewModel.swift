@@ -1,0 +1,318 @@
+import Foundation
+
+/// Detail model for video clips ("Other Videos" / YouTube-style libraries).
+/// Mirrors `MovieDetailViewModel` for metadata, playback resume, watched state,
+/// and offline fallback, plus the online-only "More from this channel" row
+/// resolved from the clip's first Collection tag (one collection per channel).
+@MainActor
+@Observable
+final class VideoDetailViewModel {
+    private static let channelRowFetchSize = 13
+    private static let channelRowItemLimit = 12
+
+    private let plexService: PlexService
+    private let downloadManager: DownloadManager?
+    private let offlinePlaybackSyncManager: OfflinePlaybackSyncManager?
+    /// Server-scoped identity of the clip; every request goes to its server.
+    let id: PlexItemID
+
+    var ratingKey: String { id.ratingKey }
+
+    private(set) var details: PlexMediaDetails?
+    /// What the card that opened this page was showing. Draws the hero while
+    /// `details` loads (`DetailSeeds`).
+    let seed: PlexItem?
+    private(set) var isLoading = false
+    private(set) var error: String?
+    /// A failed action (Mark Watched and the like). Shown as an alert, because
+    /// `error` only shows while the screen has no content.
+    var actionError: String?
+    private(set) var isUsingCachedData = false
+    private(set) var offlineStateVersion = 0
+
+    /// Other videos from the same channel (collection), newest first, excluding
+    /// this video. Empty when the row cannot be resolved (no collection tag, no
+    /// section id, offline, or fetch failure) — the view hides the row then.
+    private(set) var channelItems: [PlexItem] = []
+    private(set) var channelShowAllRoute: AppNavigationRoute?
+    @ObservationIgnored private var channelTask: Task<Void, Never>?
+    @ObservationIgnored private var loadedChannelContext: String?
+
+    init(
+        id: PlexItemID,
+        plexService: PlexService,
+        downloadManager: DownloadManager? = nil,
+        offlinePlaybackSyncManager: OfflinePlaybackSyncManager? = nil
+    ) {
+        self.id = id
+        self.seed = DetailSeeds.item(for: id)
+        self.plexService = plexService
+        self.downloadManager = downloadManager
+        self.offlinePlaybackSyncManager = offlinePlaybackSyncManager
+    }
+
+    func loadDetails() async {
+        guard details == nil else { return }
+        await refreshDetails()
+    }
+
+    func refreshDetails() async {
+        isLoading = true
+        error = nil
+
+        var seededFromRecent = false
+        if details == nil, let recentDetails = plexService.recentMediaDetails(for: id) {
+            details = recentDetails
+            seededFromRecent = true
+        } else if details == nil, let cachedDetails = downloadManager?.cachedMediaDetails(for: id) {
+            details = cachedDetails
+            isUsingCachedData = true
+        }
+
+        do {
+            details = try await plexService.getMediaDetails(ratingKey: ratingKey, serverID: serverID)
+            isUsingCachedData = false
+        } catch {
+            // Recent metadata that could not be revalidated is offline data.
+            // Without a download nothing can play from it, so fall back like a
+            // first load: the download-time copy, else the error with Retry.
+            if seededFromRecent {
+                if isPlayableOffline {
+                    isUsingCachedData = true
+                } else {
+                    details = downloadManager?.cachedMediaDetails(for: id)
+                    isUsingCachedData = details != nil
+                }
+            }
+            if details == nil {
+                self.error = error.localizedDescription
+            }
+        }
+        isLoading = false
+
+        loadChannelItemsIfNeeded()
+    }
+
+    func toggleWatched() async {
+        guard details != nil else { return }
+        let targetWatched = !isWatched
+
+        // A download only takes the offline path when its server is unreachable;
+        // online, the write fans out across servers and re-reads the details.
+        if isUsingCachedData || (isPlayableOffline && plexService.pool.connection(for: serverID) == nil) {
+            offlinePlaybackSyncManager?.recordWatchState(
+                serverID: serverID,
+                ratingKey: ratingKey,
+                watched: targetWatched
+            )
+            offlineStateVersion += 1
+            await offlinePlaybackSyncManager?.syncPendingActions(force: true)
+            return
+        }
+
+        do {
+            try await plexService.setWatchedAcrossServers(
+                targetWatched,
+                id: PlexItemID(serverID: serverID, ratingKey: ratingKey)
+            )
+            self.details = try await plexService.getMediaDetails(ratingKey: ratingKey, serverID: serverID)
+        } catch {
+            if isPlayableOffline {
+                offlinePlaybackSyncManager?.recordWatchState(
+                    serverID: serverID,
+                    ratingKey: ratingKey,
+                    watched: targetWatched
+                )
+                offlineStateVersion += 1
+            } else {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    // MARK: - Computed Helpers
+
+    var isWatched: Bool {
+        _ = offlineStateVersion
+        let fallback = (details?.viewCount ?? 0) > 0
+        return offlinePlaybackSyncManager?.effectiveWatched(
+            serverID: serverID,
+            ratingKey: ratingKey,
+            fallback: fallback
+        ) ?? fallback
+    }
+
+    var isPlayableOffline: Bool {
+        downloadManager?.isPlayableOffline(id: id) == true
+    }
+
+    var offlineBannerText: String? {
+        guard DownloadsFeature.isVisible, isUsingCachedData else { return nil }
+        return isPlayableOffline
+            ? "Showing saved video metadata. This video is available offline."
+            : "Showing saved video metadata. This video is not downloaded on this device."
+    }
+
+    var resumePositionSeconds: TimeInterval? {
+        _ = offlineStateVersion
+        guard let offset = offlinePlaybackSyncManager?.effectiveViewOffsetMs(
+            serverID: serverID,
+            ratingKey: ratingKey,
+            fallback: details?.viewOffset
+        ) ?? details?.viewOffset, offset > 0 else { return nil }
+        return TimeInterval(offset) / 1000.0
+    }
+
+    var formattedResume: String? {
+        guard let seconds = resumePositionSeconds else { return nil }
+        return MediaTextFormatter.playbackDuration(milliseconds: Int(seconds * 1000))
+    }
+
+    /// The channel the video belongs to: video libraries carry one Collection
+    /// tag per channel.
+    var channelName: String? {
+        details?.collections?.first?.tag.nilIfEmpty
+    }
+
+    var channelRowTitle: String? {
+        channelName.map { "More from \($0)" }
+    }
+
+    /// "channel · upload date · duration", omitting missing parts.
+    var metadataLine: String? {
+        let parts = [
+            channelName,
+            MediaTextFormatter.localizedVideoDate(details?.originallyAvailableAt),
+            MediaTextFormatter.compactDuration(milliseconds: details?.duration),
+        ].compactMap { $0 }
+
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    func backdropURL(width: Int, height: Int) -> URL? {
+        // A clip's `art` is rare; its `thumb` (16:9 frame grab) works as backdrop.
+        let path = details != nil ? details?.art ?? details?.thumb : seed?.art ?? seed?.thumb
+        return downloadManager?.localArtworkURL(for: path)
+            ?? plexService.imageURL(for: path, serverID: serverID, width: width, height: height)
+    }
+
+    /// The route's server wins; the download record and the primary server are
+    /// only fallbacks for an id that reached us without one (an offline cache).
+    var serverID: String? {
+        id.serverID
+            ?? downloadManager?.serverID(for: id)
+            ?? plexService.pool.primary?.serverID
+    }
+
+    // MARK: - Channel Row
+
+    private func loadChannelItemsIfNeeded() {
+        // The row is online-only: hide it while showing cached (offline) metadata
+        // or when the details carry no section/channel to resolve it from.
+        guard !isUsingCachedData,
+              let details,
+              let sectionID = details.librarySectionID,
+              let channelTag = details.collections?.first?.tag.nilIfEmpty else {
+            channelTask?.cancel()
+            channelTask = nil
+            loadedChannelContext = nil
+            channelItems = []
+            channelShowAllRoute = nil
+            return
+        }
+
+        let context = "\(sectionID)|\(channelTag.lowercased())"
+        guard context != loadedChannelContext else { return }
+
+        channelTask?.cancel()
+        channelTask = Task { [weak self] in
+            await self?.loadChannelItems(sectionID: sectionID, channelTag: channelTag, context: context)
+        }
+    }
+
+    private func loadChannelItems(sectionID: String, channelTag: String, context: String) async {
+        do {
+            // The channel row lives entirely on the clip's own server: its
+            // section id, collection tag, and rating keys all belong to it.
+            let serverID = self.serverID
+            let collections = try await plexService.getLibraryCollections(
+                sectionId: sectionID,
+                serverID: serverID
+            )
+            guard let collection = collections.first(where: {
+                $0.title.caseInsensitiveCompare(channelTag) == .orderedSame
+            }) else {
+                guard !Task.isCancelled else { return }
+                loadedChannelContext = context
+                channelItems = []
+                channelShowAllRoute = nil
+                return
+            }
+
+            let items = try await plexService.getLibraryItems(
+                sectionId: sectionID,
+                size: Self.channelRowFetchSize,
+                sort: "originallyAvailableAt:desc",
+                filters: ["collection": collection.key],
+                serverID: serverID
+            )
+
+            // The library is only needed for the "Show all" route; failing to
+            // resolve it must not hide the row itself.
+            // Libraries or Home usually loaded the section already; only ask
+            // the server when it is not cached.
+            let cached = plexService.libraryOrder.orderedSections
+                .first { $0.key == sectionID && $0.serverID == serverID }
+            let library: PlexLibrary?
+            if let cached {
+                library = cached
+            } else {
+                library = (try? await plexService.getLibraries(serverID: serverID))?
+                    .first { $0.key == sectionID }
+            }
+
+            guard !Task.isCancelled else { return }
+            loadedChannelContext = context
+            channelItems = Array(
+                items
+                    .filter { $0.id != id }
+                    .prefix(Self.channelRowItemLimit)
+            )
+            channelShowAllRoute = library.map { .libraryCollection(library: $0, collection: collection) }
+        } catch {
+            // The row is a bonus; failures just hide it without surfacing errors.
+            guard !Task.isCancelled else { return }
+            channelItems = []
+            channelShowAllRoute = nil
+        }
+    }
+}
+
+// MARK: - Subtitle Search
+
+extension VideoDetailViewModel {
+    /// Gated exactly like the player's entry point: Plex only lets the server
+    /// owner (and non-restricted Home users) write sidecar files, and there has
+    /// to be a real part on disk to write next to.
+    var canDownloadSubtitles: Bool {
+        plexService.canDownloadSubtitles(serverID: serverID) && !isUsingCachedData && hasPlayablePart
+    }
+
+    private var hasPlayablePart: Bool {
+        details?.media.contains { !$0.parts.isEmpty } == true
+    }
+
+    /// Builds the flow's view model so the view never reaches for `PlexService`.
+    /// Re-reading the item afterwards is what surfaces the new subtitle stream in
+    /// the media info; the next playback session mounts it on its own.
+    func makeSubtitleSearchViewModel(preferredLanguageCode: String?) -> SubtitleSearchViewModel {
+        SubtitleSearchViewModel(
+            plexService: plexService,
+            ratingKey: ratingKey,
+            serverID: serverID,
+            preferredLanguageCode: preferredLanguageCode
+        ) { [weak self] _ in
+            await self?.refreshDetails()
+        }
+    }
+}

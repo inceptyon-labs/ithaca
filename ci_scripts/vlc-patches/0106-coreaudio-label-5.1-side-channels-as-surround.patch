@@ -1,0 +1,43 @@
+From 03b61d3fabfceabd7234264b5e267f34f13e0381 Mon Sep 17 00:00:00 2001
+From: Ithaca <ithaca@localhost>
+Date: Wed, 21 Oct 2026 20:46:13 -0400
+Subject: [PATCH] coreaudio: label 5.1 side channels as surround
+
+MapInputLayout() only labelled the middle (side) pair as Left/Right
+Surround for a full 7.x layout. avcodec decodes AC-3 and E-AC-3 5.1 to
+5.1 side (3F2M/LFE), so on iOS/tvOS those channels went out as
+RearSurroundLeft/Right. A 5.1 route (an Apple TV on a 5.1 receiver or
+soundbar) has no rear surround channel, and the surround channels were
+dropped. Label the middle pair as Surround whenever there is no rear
+pair; 7.x keeps its rear pair on RearSurround as before.
+---
+ modules/audio_output/coreaudio_common.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/modules/audio_output/coreaudio_common.c b/modules/audio_output/coreaudio_common.c
+index 6046f76..a05da9a 100644
+--- a/modules/audio_output/coreaudio_common.c
++++ b/modules/audio_output/coreaudio_common.c
+@@ -803,10 +803,16 @@ MapInputLayout(audio_output_t *p_aout, const audio_sample_format_t *fmt,
+     inlayout->mChannelLayoutTag = kAudioChannelLayoutTag_UseChannelDescriptions;
+     inlayout->mNumberChannelDescriptions = aout_FormatNbChannels(fmt);
+ 
+-    bool swap_rear_surround = (fmt->i_physical_channels & AOUT_CHANS_7_0) == AOUT_CHANS_7_0;
++    /* The middle (side) pair is the surround pair whenever there is no rear
++     * pair: 5.1 side (3F2M/LFE), which avcodec outputs for AC-3 and E-AC-3
++     * 5.1. Labelling it RearSurround left a 5.1 route (L R C LFE Ls Rs)
++     * with no channel to map it to, and the surround channels were dropped.
++     * Only 7.x keeps the rear pair on RearSurround. */
++    const uint32_t chans = fmt->i_physical_channels;
++    bool swap_rear_surround = (chans & AOUT_CHANS_7_0) == AOUT_CHANS_7_0
++        || ((chans & AOUT_CHAN_MIDDLELEFT) && !(chans & AOUT_CHAN_REARLEFT));
+     if (swap_rear_surround)
+-        msg_Dbg(p_aout, "swapping Surround and RearSurround channels "
+-                "for 7.1 Rear Surround");
++        msg_Dbg(p_aout, "labelling the middle channels as Surround");
+     unsigned chan_idx = 0;
+     for (unsigned i = 0; i < AOUT_CHAN_MAX; ++i)
+     {
+-- 
+2.56.0
+

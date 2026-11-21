@@ -1,0 +1,194 @@
+name: Ithaca
+options:
+  bundleIdPrefix: com.inceptyon
+  deploymentTarget:
+    iOS: "18.0"
+    tvOS: "26.0"
+  xcodeVersion: "27.0"
+  generateEmptyDirectories: true
+  groupSortPosition: top
+  fileTypes:
+    icon: folder.iconcomposer.icon
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    GENERATE_INFOPLIST_FILE: true
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "3"
+
+targets:
+  Ithaca:
+    type: application
+    platform: iOS
+    sources:
+      - path: Ithaca/Sources
+      - path: Ithaca/Resources
+        buildPhase: resources
+        excludes:
+          - LaunchScreen-tvOS.storyboard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inceptyon.ithaca
+        CODE_SIGN_ENTITLEMENTS: Ithaca/Support/Ithaca.entitlements
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: Ithaca/Support/Info-iOS.plist
+        PRODUCT_NAME: Ithaca
+        DEVELOPMENT_TEAM: 3T877KDT79
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME: ""
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/Frameworks"
+        HEADER_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/Ithaca/Sources/Playback $(PROJECT_DIR)/Frameworks/MobileVLCKit.xcframework/ios-arm64/MobileVLCKit.framework/Headers $(PROJECT_DIR)/Frameworks/MobileVLCKit.xcframework/ios-arm64-simulator/MobileVLCKit.framework/Headers"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        SWIFT_OBJC_BRIDGING_HEADER: Ithaca/Support/Ithaca-Bridging-Header.h
+        SWIFT_STRICT_CONCURRENCY: complete
+    dependencies:
+      - framework: Frameworks/MobileVLCKit.xcframework
+        embed: true
+      # Static Rust archive (Dolby Vision 7 -> 8.1), built by
+      # ci_scripts/install_ithaca_dovi.sh. Linked into the app binary, never embedded.
+      - framework: Frameworks/IthacaDovi.xcframework
+        embed: false
+    postBuildScripts:
+      - script: ./scripts/verify_embedded_vlckit.sh
+        name: Verify embedded VLCKit is not stale
+        basedOnDependencyAnalysis: false
+
+  Ithaca-tvOS:
+    type: application
+    platform: tvOS
+    sources:
+      - path: Ithaca/Sources
+      - path: Ithaca/Resources
+        buildPhase: resources
+        excludes:
+          # The layered .icon is iOS-only; tvOS uses the AppIconTV brand assets.
+          - AppIcon.icon
+          - LaunchScreen.storyboard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inceptyon.ithaca
+        # Adds the App Group the Top Shelf extension reads its snapshot from.
+        # iOS keeps Ithaca.entitlements, so its signing is untouched.
+        CODE_SIGN_ENTITLEMENTS: Ithaca/Support/Ithaca-tvOS.entitlements
+        PRODUCT_NAME: Ithaca
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: Ithaca/Support/Info-tvOS.plist
+        DEVELOPMENT_TEAM: 3T877KDT79
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconTV
+        ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME: ""
+        # The global accent is the app's only tint (label color, never coral).
+        # On tvOS it also matches the tab bar's tint (Color.ithacaTVTabBarTint), so
+        # a bar that falls back to the window tint looks the same. Since the
+        # tvOS 27 SDK, Buttons no longer take it as their label tint and use the
+        # label color instead, which is the same color.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/Frameworks"
+        HEADER_SEARCH_PATHS: "$(inherited) $(PROJECT_DIR)/Ithaca/Sources/Playback $(PROJECT_DIR)/Frameworks/TVVLCKit.xcframework/tvos-arm64/TVVLCKit.framework/Headers $(PROJECT_DIR)/Frameworks/TVVLCKit.xcframework/tvos-arm64-simulator/TVVLCKit.framework/Headers"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        SWIFT_OBJC_BRIDGING_HEADER: Ithaca/Support/Ithaca-Bridging-Header.h
+        SWIFT_STRICT_CONCURRENCY: complete
+    dependencies:
+      # UIWindow.avDisplayManager is supplied by an Objective-C category in
+      # AVKit. Importing AVKit is not enough to load that category at runtime.
+      - sdk: AVKit.framework
+      - framework: Frameworks/TVVLCKit.xcframework
+        embed: true
+      - framework: Frameworks/IthacaDovi.xcframework
+        embed: false
+      - target: IthacaTopShelf
+    postBuildScripts:
+      - script: ./scripts/verify_embedded_vlckit.sh
+        name: Verify embedded VLCKit is not stale
+        basedOnDependencyAnalysis: false
+
+  # tvOS Top Shelf: shows Continue Watching from the snapshot the app writes
+  # into the shared App Group (Ithaca/Sources/TopShelf). No Plex access of its own.
+  IthacaTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: IthacaTopShelf
+        excludes:
+          - Info.plist
+          - IthacaTopShelf.entitlements
+      - path: Ithaca/Sources/TopShelf/TopShelfSnapshot.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inceptyon.ithaca.topshelf
+        PRODUCT_NAME: IthacaTopShelf
+        CODE_SIGN_ENTITLEMENTS: IthacaTopShelf/IthacaTopShelf.entitlements
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: IthacaTopShelf/Info.plist
+        DEVELOPMENT_TEAM: 3T877KDT79
+        APPLICATION_EXTENSION_API_ONLY: true
+        SWIFT_STRICT_CONCURRENCY: complete
+    dependencies:
+      - sdk: TVServices.framework
+
+  # Unit tests, hosted by the app.
+  IthacaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: IthacaTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inceptyon.ithaca.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Ithaca.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ithaca"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        SWIFT_STRICT_CONCURRENCY: complete
+    dependencies:
+      - target: Ithaca
+
+  IthacaTests-tvOS:
+    type: bundle.unit-test
+    platform: tvOS
+    sources:
+      - path: IthacaTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.inceptyon.ithaca.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Ithaca.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ithaca"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        SWIFT_STRICT_CONCURRENCY: complete
+    dependencies:
+      - target: Ithaca-tvOS
+
+schemes:
+  Ithaca:
+    build:
+      targets:
+        Ithaca: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - IthacaTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  Ithaca-tvOS:
+    build:
+      targets:
+        Ithaca-tvOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - IthacaTests-tvOS
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

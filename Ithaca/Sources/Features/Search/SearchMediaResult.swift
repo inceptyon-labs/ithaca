@@ -1,0 +1,89 @@
+import Foundation
+
+enum SearchMediaResult: Identifiable {
+    case plex(PlexItem)
+    case seerr(SeerrSearchMedia)
+
+    /// Includes the server: merged results can hold the same rating key from
+    /// two servers, and a duplicate id inside one `ForEach` makes SwiftUI drop
+    /// rows at random.
+    var id: String {
+        switch self {
+        case .plex(let item): "plex:\(item.id.storageKey)"
+        case .seerr(let item): "seerr:\(item.mediaType):\(item.id)"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .plex(let item): item.title
+        case .seerr(let item): item.displayTitle
+        }
+    }
+
+    var subtitle: String? {
+        switch self {
+        case .plex(let item):
+            item.standardPosterSubtitle
+        case .seerr(let item):
+            item.year.map(String.init)
+        }
+    }
+
+    @MainActor
+    var route: AppNavigationRoute {
+        switch self {
+        case .plex(let item):
+            AppNavigationRoute.destination(for: item)
+        case .seerr(let item):
+            .seerrMedia(type: item.supportedMediaType ?? .movie, id: item.id)
+        }
+    }
+
+    var progress: Double? {
+        guard case .plex(let item) = self else { return nil }
+        return item.posterProgress
+    }
+
+    var isClip: Bool {
+        guard case .plex(let item) = self else { return false }
+        return item.isClip
+    }
+
+    /// `width` and `height` are points. Plex scales them to the display;
+    /// Seerr picks a TMDB size bucket by pixel width, so it gets pixels.
+    @MainActor
+    func imageURL(
+        plexService: PlexService,
+        seerrService: SeerrService,
+        width: Int,
+        height: Int
+    ) -> URL? {
+        switch self {
+        case .plex(let item):
+            item.posterImageURL(plexService: plexService, width: width, height: height)
+        case .seerr(let item):
+            seerrService.posterURL(
+                path: item.posterPath,
+                width: plexService.scaledImageDimension(width) ?? width
+            )
+        }
+    }
+
+    @MainActor
+    func availabilityBadge(using service: SeerrService) -> String? {
+        guard case .seerr(let item) = self else { return nil }
+        return service.requestState(mediaInfo: item.mediaInfo).badgeTitle
+    }
+}
+
+struct SearchMediaResultGroup: Identifiable {
+    let id: String
+    let title: String
+    let type: String?
+    var items: [SearchMediaResult]
+
+    var isAllClips: Bool {
+        !items.isEmpty && items.allSatisfy(\.isClip)
+    }
+}

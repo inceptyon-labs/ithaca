@@ -1,0 +1,313 @@
+import SwiftUI
+
+struct PlayerPlaybackInfoView: View {
+    @Environment(\.dismiss) private var dismiss
+    #if os(tvOS)
+    @FocusState private var focusedTVInfoEntryID: String?
+    #endif
+
+    let debugInfo: PlaybackDebugInfo
+    let state: PlaybackState
+    let isBuffering: Bool
+    let selectedAudioTrack: AudioTrack?
+    let engineDiagnostics: [PlaybackEngineDiagnostic]
+
+    var body: some View {
+        #if os(tvOS)
+        tvOSBody
+        #else
+        iOSBody
+        #endif
+    }
+
+    private var iOSBody: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(infoEntries) { entry in
+                        playbackInfoRow(entry)
+                    }
+                } header: {
+                    Text(debugInfo.title)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                }
+            }
+            .ithacaScrollContentBackgroundHidden()
+            .background(Color.ithacaBackground)
+            .ithacaNavigationTitle("Playback Info")
+            .ithacaNavigationBarTitleDisplayModeInline()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .ithacaSuppressTVOSButtonChrome()
+                }
+            }
+        }
+        .presentationBackground(Color.ithacaBackground)
+    }
+
+    #if os(tvOS)
+    private var tvOSBody: some View {
+        let entries = infoEntries
+
+        return ZStack {
+            Color.ithacaBackground
+                .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Playback Info")
+                        .font(IthacaFont.TV.pageTitle)
+                        .foregroundStyle(Color.ithacaTextPrimary)
+
+                    Text(debugInfo.title)
+                        .font(IthacaFont.TV.body)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                        .lineLimit(2)
+                }
+
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            ForEach(entries) { entry in
+                                tvOSPlaybackInfoRow(
+                                    entry,
+                                    isFocused: focusedTVInfoEntryID == entry.id
+                                )
+                                .id(entry.id)
+                                .focusable(true)
+                                .focused($focusedTVInfoEntryID, equals: entry.id)
+                            }
+                        }
+                        .padding(28)
+                    }
+                    .scrollIndicators(.visible)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+                    }
+                    .onAppear {
+                        focusedTVInfoEntryID = entries.first?.id
+                    }
+                    .onChange(of: focusedTVInfoEntryID) { _, entryID in
+                        guard let entryID else { return }
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            proxy.scrollTo(entryID, anchor: .center)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 96)
+            .padding(.vertical, 64)
+        }
+        .onExitCommand {
+            dismiss()
+        }
+    }
+
+    private func tvOSPlaybackInfoRow(_ entry: PlaybackInfoEntry, isFocused: Bool) -> some View {
+        HStack(alignment: .top, spacing: 28) {
+            Text(entry.label.uppercased())
+                .font(IthacaFont.TV.groupHeader)
+                .foregroundStyle(Color.ithacaTextSecondary)
+                .frame(width: 230, alignment: .leading)
+
+            Text(entry.value)
+                .font(IthacaFont.TV.rowValue.monospaced())
+                .foregroundStyle(Color.ithacaTextPrimary)
+                .lineLimit(Self.extendedLineLabels.contains(entry.label) ? 5 : 2)
+                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 14)
+        .background(
+            isFocused ? Color.ithacaSurface.opacity(0.96) : Color.ithacaSurface.opacity(0.76),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    isFocused ? .white.opacity(0.35) : .white.opacity(0.04),
+                    lineWidth: 1
+                )
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+    #endif
+
+    private var infoEntries: [PlaybackInfoEntry] {
+        var entries = [
+            PlaybackInfoEntry(label: "Engine", value: debugInfo.engineLabel),
+            PlaybackInfoEntry(label: "Mode", value: debugInfo.decisionLabel),
+            PlaybackInfoEntry(label: "Attempt", value: debugInfo.attemptLabel),
+            PlaybackInfoEntry(label: "Resolver", value: debugInfo.resolverLabel),
+            PlaybackInfoEntry(label: "Transcode", value: debugInfo.transcodeLabel),
+            PlaybackInfoEntry(label: "Container", value: debugInfo.containerLabel),
+            PlaybackInfoEntry(label: "Bitrate", value: debugInfo.bitrateLabel),
+            PlaybackInfoEntry(label: "Video", value: debugInfo.videoLabel),
+            PlaybackInfoEntry(label: "Audio", value: debugInfo.audioLabel),
+            PlaybackInfoEntry(label: "Selected Audio", value: selectedAudioTrackLabel),
+            PlaybackInfoEntry(label: "Resolution", value: debugInfo.resolutionLabel),
+        ]
+
+        #if os(tvOS)
+        // Reports both the mode Ithaca asked for and the reason it could not ask,
+        // so "Match Content is off in tvOS Settings" is self-diagnosing.
+        entries.append(PlaybackInfoEntry(label: "Display Mode", value: DisplayModeMatcher.statusLabel))
+        #endif
+
+        entries += [
+            PlaybackInfoEntry(label: "File", value: debugInfo.fileSizeLabel),
+            PlaybackInfoEntry(label: "Subtitles", value: debugInfo.subtitleLabel),
+            PlaybackInfoEntry(label: "State", value: stateLabel),
+            PlaybackInfoEntry(label: "URL", value: debugInfo.urlLabel),
+        ]
+
+        return entries + engineDiagnostics.map {
+            PlaybackInfoEntry(label: $0.label, value: $0.value)
+        }
+    }
+
+    private var selectedAudioTrackLabel: String {
+        guard let selectedAudioTrack else { return "Unknown" }
+
+        var details: [String] = [selectedAudioTrack.compactDisplayTitle]
+        if let codec = selectedAudioTrack.codec, !codec.isEmpty {
+            details.append(codec.uppercased())
+        }
+        if let channels = selectedAudioTrack.channels {
+            details.append("\(channels)ch")
+        }
+        if let layout = selectedAudioTrack.channelLayout, !layout.isEmpty {
+            details.append(layout)
+        }
+
+        return details.joined(separator: " / ")
+    }
+
+    private var stateLabel: String {
+        let stateText: String
+        switch state {
+        case .idle:
+            stateText = "Idle"
+        case .loading:
+            stateText = "Loading"
+        case .playing:
+            stateText = "Playing"
+        case .paused:
+            stateText = "Paused"
+        case .stopped:
+            stateText = "Stopped"
+        case .error:
+            stateText = "Error"
+        }
+
+        return isBuffering ? "\(stateText) / Buffering" : stateText
+    }
+
+    private func playbackInfoRow(_ entry: PlaybackInfoEntry) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(entry.label.uppercased())
+                .font(IthacaFont.badge(ios: .caption2.weight(.semibold)))
+                .foregroundStyle(Color.ithacaTextSecondary)
+
+            Text(entry.value)
+                .font(IthacaFont.caption(ios: .caption).monospaced())
+                .foregroundStyle(Color.ithacaTextPrimary)
+                .lineLimit(Self.extendedLineLabels.contains(entry.label) ? 4 : 2)
+        }
+        .padding(.vertical, 4)
+        .listRowBackground(Color.ithacaSurface)
+    }
+
+    private static let extendedLineLabels: Set<String> = [
+        "URL",
+        "Resolver",
+        "Audio Route",
+        "Selected Audio",
+        "VLC Audio Track",
+        "VLC Audio Output",
+    ]
+}
+
+struct PlayerPlaybackInfoUnavailableView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        #if os(tvOS)
+        tvOSBody
+        #else
+        iOSBody
+        #endif
+    }
+
+    private var iOSBody: some View {
+        NavigationStack {
+            ContentUnavailableView(
+                "Playback Info Unavailable",
+                systemImage: "info.circle",
+                description: Text("No playback statistics are available for this session.")
+            )
+            .foregroundStyle(Color.ithacaTextSecondary)
+            .background(Color.ithacaBackground)
+            .ithacaNavigationTitle("Playback Info")
+            .ithacaNavigationBarTitleDisplayModeInline()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .ithacaSuppressTVOSButtonChrome()
+                }
+            }
+        }
+        .presentationBackground(Color.ithacaBackground)
+    }
+
+    #if os(tvOS)
+    private var tvOSBody: some View {
+        ZStack {
+            Color.ithacaBackground
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Image(systemName: "info.circle")
+                    .font(IthacaFont.TV.glyphLarge)
+                    .foregroundStyle(Color.ithacaTextSecondary)
+
+                Text("Playback Info Unavailable")
+                    .font(IthacaFont.TV.sectionHeader)
+                    .foregroundStyle(Color.ithacaTextPrimary)
+
+                Text("No playback statistics are available for this session.")
+                    .font(IthacaFont.TV.body)
+                    .foregroundStyle(Color.ithacaTextSecondary)
+                    .multilineTextAlignment(.center)
+
+            }
+            .padding(42)
+            .frame(width: 620)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+            }
+        }
+        .onExitCommand {
+            dismiss()
+        }
+    }
+    #endif
+}
+
+private struct PlaybackInfoEntry: Identifiable {
+    let label: String
+    let value: String
+
+    var id: String { label }
+}

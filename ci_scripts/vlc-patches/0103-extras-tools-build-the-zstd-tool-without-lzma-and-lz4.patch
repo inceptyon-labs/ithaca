@@ -1,0 +1,32 @@
+From 2ee883dab8dfd3509a86add9ddb33881788cffb1 Mon Sep 17 00:00:00 2001
+From: Ithaca <ithaca@localhost>
+Date: Wed, 21 Oct 2026 13:12:22 -0400
+Subject: [PATCH] extras/tools: build the zstd tool without lzma and lz4
+
+zstd's Makefile enables .xz and .lz4 support whenever it finds liblzma and
+liblz4. On an Apple Silicon Mac that still has an Intel Homebrew in
+/usr/local, it finds their x86_64 dylibs and the arm64 link fails. The
+tools bootstrap only needs zstd itself (for tar --zstd), so build it with
+neither.
+---
+ extras/tools/tools.mak | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/extras/tools/tools.mak b/extras/tools/tools.mak
+index 8bdc7edac0..558156c166 100644
+--- a/extras/tools/tools.mak
++++ b/extras/tools/tools.mak
+@@ -200,8 +200,8 @@ zstd: zstd-$(ZSTD_VERSION).tar.gz
+ 	$(MOVE)
+ 
+ .buildzstd: zstd
+-	+$(MAKE) -C $</programs
+-	+$(MAKE) -C $</programs install prefix=$(PREFIX)
++	+$(MAKE) -C $</programs HAVE_LZMA=0 HAVE_LZ4=0
++	+$(MAKE) -C $</programs install prefix=$(PREFIX) HAVE_LZMA=0 HAVE_LZ4=0
+ 	touch $@
+ 
+ CLEAN_PKG += zstd
+-- 
+2.56.0
+

@@ -1,0 +1,294 @@
+import Foundation
+import SwiftUI
+
+struct PlayerSeekFeedbackPresentation: Equatable {
+    enum Direction: Equatable {
+        case backward
+        case forward
+
+        var symbolName: String {
+            switch self {
+            case .backward:
+                return "gobackward"
+            case .forward:
+                return "goforward"
+            }
+        }
+    }
+
+    let direction: Direction
+    let seconds: Int
+    let trigger: Int
+}
+
+/// Manages player UI state: syncs from the engine via timer, handles overlay
+/// visibility, scrubbing, and forwards control actions to the engine.
+@MainActor @Observable
+final class PlayerViewModel {
+    var state: PlaybackState = .idle
+    var currentTime: TimeInterval = 0
+    var duration: TimeInterval = 0
+    var seekableRange: ClosedRange<TimeInterval>?
+    var isBuffering = false
+    var hasStartedPlayback = false
+    var playbackError: PlaybackError?
+    var subtitleTracks: [SubtitleTrack] = []
+    var audioTracks: [AudioTrack] = []
+    var selectedSubtitleTrackID: Int?
+    var selectedAudioTrackID: Int?
+    /// Mirrors `UserPreferences.subtitleFontSize` so the in-player picker can
+    /// observe it. Changing it there writes straight back to preferences.
+    var subtitleFontSize: SubtitleFontSize = .default
+    var showControls = true
+    var aspectFillEnabled = false
+    var showSubtitlePicker = false
+    var showSubtitleSizePicker = false
+    var showSubtitleSearch = false
+    var showAudioPicker = false
+    var showQualityPicker = false
+    var showPlaybackInfo = false
+    var isControlsInteractionHeld = false
+    var isScrubbing = false
+    var scrubPosition: TimeInterval = 0
+    var seekFeedback: PlayerSeekFeedbackPresentation?
+    var autoSkipCountdownProgress: Double?
+    var isSpeedBoostActive = false
+    /// Viewer-chosen playback speed. Separate from the transient press-and-hold
+    /// 2× boost, which overrides it while held and restores it on release.
+    /// Reset per session, because the engine is rebuilt with the session.
+    var playbackRate: Float = 1
+    #if os(tvOS)
+    /// tvOS routes every HUD reveal through `PlayerTVHUDController`. Set while
+    /// the controller performs an action that must not raise the HUD — a
+    /// Skip Intro activation from the hidden state.
+    @ObservationIgnored var suppressControlsReveal = false
+    #endif
+
+    let engine: any PlaybackEngine
+    /// The engine's rendering view. Refreshed from `sync()` when the engine
+    /// reports a new `playerViewGeneration` (VLCKit swaps its rendering
+    /// surface when entering Picture in Picture support mode mid-session).
+    var engineView: AnyView
+    @ObservationIgnored var lastPlayerViewGeneration = 0
+    let markers: [PlexMarker]
+    /// False before the last part of a stacked item, where a guessed credits
+    /// point would raise Up Next mid-film.
+    let allowsEstimatedCredits: Bool
+    /// Refreshed by the coordinator as the tuned channel's schedule rolls over,
+    /// so the play bar and header follow the actual programming.
+    var liveTVContext: PlexLivePlaybackContext?
+    /// Wall-clock view of the live session, rebuilt on every `sync()`. Nil for
+    /// everything except Live TV, and until the engine reports a position.
+    var liveTimeline: LiveTimelineSnapshot?
+    @ObservationIgnored var liveEdgeClock = LiveEdgeClock()
+    var hasLoadedSource = false
+    var sourcePart: PlexMediaPart?
+    var preferredSubtitleLanguage: String?
+    var preferredAudioLanguage: String?
+    var subtitleForcedOnly = false
+    var autoSkipIntroMode: AutoSkipIntroMode = .alwaysExceptFirstEpisode
+    var isFirstEpisodeInSeason = false
+    var autoSkipCountdownMarkerID: Int?
+    var autoSkipHandler: (@MainActor (PlexMarker) -> Void)?
+    /// Markers this episode has already skipped once, seeded from the
+    /// coordinator so the record survives a rebuilt player (quality switch,
+    /// Picture in Picture restore). A marker in here never arms another
+    /// auto-skip countdown: seeking back into the intro shows the button again,
+    /// but the jump forward is the viewer's to make.
+    @ObservationIgnored var spentAutoSkipMarkerIDs: Set<Int> = []
+    /// Reports a newly spent auto-skip back to the coordinator, which owns the
+    /// per-episode record.
+    var autoSkipSpentHandler: (@MainActor (Int) -> Void)?
+    /// Fires when the reached credits marker changes (nil when leaving the
+    /// credits, e.g. a seek back before the marker). The player forwards it to
+    /// the coordinator, which resolves the next episode and shows/hides the
+    /// bottom-right Up Next poster.
+    var upNextPosterHandler: (@MainActor (PlexMarker?) -> Void)?
+    @ObservationIgnored var lastNotifiedCreditsMarkerID: Int?
+    var hasConfiguredAutomaticTrackSelection = false
+    var hasAppliedAutomaticAudioSelection = false
+    var hasAppliedAutomaticSubtitleSelection = false
+    /// Sidecar subtitles mount a beat after the container's own tracks, so the
+    /// one-shot automatic choice is re-evaluated exactly once after an external
+    /// track appears — and never after the viewer has chosen for themselves.
+    var hasReappliedAutomaticSubtitleSelectionForExternalTracks = false
+    var hasUserSelectedSubtitleTrack = false
+    /// Builds the token-bearing URL for a Plex sidecar subtitle stream. Set by
+    /// `PlayerView` from the coordinator's `PlexService`; nil in previews, where
+    /// external streams then simply stay out of the picker.
+    @ObservationIgnored var externalSubtitleURLProvider: (@MainActor (PlexStream) -> URL?)?
+    /// Asks the coordinator to restart this session on VLCKit so a Plex sidecar
+    /// can be mounted. Fired when the viewer picks an external subtitle in an
+    /// AVPlayer session, which cannot attach one to a live item.
+    var externalSubtitleRestartHandler: (@MainActor (Int) -> Void)?
+    /// Plex subtitle stream id to select as soon as it is mounted: carried
+    /// across the AVPlayer → VLCKit restart and set after a subtitle download.
+    var pendingExternalSubtitleStreamID: Int?
+    /// External Plex streams already handed to the engine this session.
+    @ObservationIgnored var attachedExternalSubtitleStreamIDs: Set<Int> = []
+    /// The part's sidecar subtitle streams paired with their resolved URLs.
+    /// Cached because the track lists are rebuilt on every sync tick and
+    /// building a stream URL is not free.
+    @ObservationIgnored var externalSubtitleStreams: [(stream: PlexStream, url: URL)] = []
+    /// One-shot guard for the undecodable-audio transcode fallback. Not reset
+    /// by `configureAutomaticTrackSelection`, so it holds for the life of this
+    /// view model.
+    var hasRequestedUndecodableAudioFallback = false
+    /// False for offline downloads, where Plex cannot convert audio: the
+    /// keep-the-undecodable-main policy then stays off and a decodable
+    /// commentary remains the pick.
+    var canConvertAudioOnServer = true
+    /// Asks the coordinator to restart playback as a server transcode pinned
+    /// to the given audio stream (nil = the part's default audio stream).
+    /// Fired when the user picks a track the engine cannot decode locally, or
+    /// when a file has no locally decodable audio at all — sound must come
+    /// from the server transcoder instead of a dead local decoder.
+    var transcodeAudioFallbackHandler: (@MainActor (AudioTrack?) -> Void)?
+    /// AirPlay track pickers represent original Plex streams even though the
+    /// AVPlayer HLS item contains only the server-rendered selection. Changes
+    /// therefore rebuild the Plex stream instead of selecting an engine track.
+    var usesServerTrackSelection = false
+    /// A Dolby Atmos remux delivers the server-selected text subtitle as an
+    /// HLS subtitle rendition the local engine still has to switch on.
+    @ObservationIgnored var pendingServerSubtitleRenditionSelection = false
+    /// Plex streams the viewer explicitly chose before an engine swap (Atmos
+    /// remux → direct play). They replace the automatic picks once.
+    @ObservationIgnored var explicitTrackSelection: ExplicitTrackSelection?
+    var serverSelectedAudioStreamID: Int?
+    var serverSelectedSubtitleStreamID: Int?
+    var plexTrackSelectionHandler: (@MainActor (Int?, Int?) -> Void)?
+    var pendingPlaybackState: PlaybackState?
+    var pendingPlaybackStateExpiration: Date?
+    var playbackSnapshotHandler: (@MainActor (PlaybackState, TimeInterval, TimeInterval) -> Void)?
+    /// Reports only the debounced mid-play buffering signal. PlaybackCoordinator
+    /// combines it with startup/fallback into the single player loading state.
+    var bufferingPresentationHandler: (@MainActor (Bool) -> Void)?
+    var bufferingStartedAt: Date?
+    var stalledPlaybackStartedAt: Date?
+    var lastProgressAt = Date()
+    var lastProgressPosition: TimeInterval = 0
+    var stallRecoveryAttempts = 0
+    var lastStallRecoveryAt: Date?
+    @ObservationIgnored nonisolated(unsafe) var syncTimer: Timer?
+    @ObservationIgnored nonisolated(unsafe) var controlsAutoHideTask: Task<Void, Never>?
+    @ObservationIgnored var controlsAutoHideDeadline: Date?
+    @ObservationIgnored var controlsInteractionHoldCount = 0
+    @ObservationIgnored nonisolated(unsafe) var seekFeedbackTask: Task<Void, Never>?
+    @ObservationIgnored nonisolated(unsafe) var autoSkipCountdownTask: Task<Void, Never>?
+    /// Preferences store used to persist the per-orientation zoom-to-fill
+    /// choice. Set from `configureAutomaticTrackSelection` on appear.
+    @ObservationIgnored var userPreferences: UserPreferences?
+    /// Current player orientation (nil until the first layout pass). Portrait
+    /// and landscape each remember their own zoom-to-fill setting.
+    @ObservationIgnored var isLandscapeVideoOrientation: Bool?
+
+    init(
+        engine: any PlaybackEngine,
+        markers: [PlexMarker] = [],
+        allowsEstimatedCredits: Bool = true,
+        liveTVContext: PlexLivePlaybackContext? = nil
+    ) {
+        self.engine = engine
+        self.allowsEstimatedCredits = allowsEstimatedCredits
+        self.engineView = engine.makePlayerView()
+        self.lastPlayerViewGeneration = engine.playerViewGeneration
+        self.markers = markers.sorted { $0.startTimeOffset < $1.startTimeOffset }
+        self.liveTVContext = liveTVContext
+        // No side effects here: SwiftUI builds a throwaway instance on every
+        // parent redraw. The sync loop starts on appear (`startSync`).
+    }
+
+    deinit {
+        syncTimer?.invalidate()
+        controlsAutoHideTask?.cancel()
+        seekFeedbackTask?.cancel()
+        autoSkipCountdownTask?.cancel()
+    }
+
+    func cleanup() {
+        syncTimer?.invalidate()
+        controlsAutoHideTask?.cancel()
+        seekFeedbackTask?.cancel()
+        autoSkipCountdownTask?.cancel()
+        syncTimer = nil
+        controlsAutoHideTask = nil
+        controlsAutoHideDeadline = nil
+        controlsInteractionHoldCount = 0
+        isControlsInteractionHeld = false
+        seekFeedbackTask = nil
+        autoSkipCountdownTask = nil
+        showQualityPicker = false
+        bufferingPresentationHandler?(false)
+        bufferingStartedAt = nil
+        stalledPlaybackStartedAt = nil
+        endSpeedBoost()
+        // Pause (not stop) so the coordinator can read final position
+        // for timeline reporting before tearing down the engine. While a PiP
+        // window is showing, the cover is dismissed but playback must keep
+        // running in the floating window, so leave the engine alone.
+        if !engine.isPictureInPictureActive {
+            engine.pause()
+        }
+    }
+
+    func configureAutomaticTrackSelection(
+        preferences: UserPreferences,
+        part: PlexMediaPart?,
+        mediaDetails: PlexMediaDetails? = nil,
+        usesServerTrackSelection: Bool = false,
+        rendersServerSubtitleTrack: Bool = false,
+        selectedAudioStreamID: Int? = nil,
+        selectedSubtitleStreamID: Int? = nil,
+        pendingExternalSubtitleStreamID: Int? = nil,
+        explicitTrackSelection: ExplicitTrackSelection? = nil,
+        spentAutoSkipMarkerIDs: Set<Int> = []
+    ) {
+        userPreferences = preferences
+        // Apply the saved zoom-to-fill choice now that preferences are known.
+        // Safe to call in any order relative to the first layout pass: it
+        // no-ops until an orientation is also known.
+        applyPersistedAspectFill()
+        sourcePart = part
+        self.usesServerTrackSelection = usesServerTrackSelection
+        serverSelectedAudioStreamID = selectedAudioStreamID
+        serverSelectedSubtitleStreamID = selectedSubtitleStreamID
+        pendingServerSubtitleRenditionSelection = usesServerTrackSelection
+            && rendersServerSubtitleTrack
+            && selectedSubtitleStreamID != nil
+        self.explicitTrackSelection = usesServerTrackSelection ? nil : explicitTrackSelection
+        preferredSubtitleLanguage = Self.normalizedLanguageCode(preferences.defaultSubtitleLanguage)
+        preferredAudioLanguage = Self.normalizedLanguageCode(preferences.defaultAudioLanguage)
+        subtitleForcedOnly = preferences.subtitleForcedOnly
+        subtitleFontSize = preferences.subtitleFontSize
+        autoSkipIntroMode = preferences.autoSkipIntroMode
+        isFirstEpisodeInSeason = mediaDetails?.type == .episode && mediaDetails?.index == 1
+        self.spentAutoSkipMarkerIDs = spentAutoSkipMarkerIDs
+        hasConfiguredAutomaticTrackSelection = true
+        // Only this view model loads an engine, so one that is already past
+        // idle is the live engine a Picture in Picture restore re-presents.
+        // Its tracks are what the viewer left them on; don't re-pick them.
+        let isRestoringLiveEngine = engine.state != .idle
+        hasAppliedAutomaticAudioSelection = isRestoringLiveEngine
+        hasAppliedAutomaticSubtitleSelection = isRestoringLiveEngine
+        hasReappliedAutomaticSubtitleSelectionForExternalTracks = isRestoringLiveEngine
+        hasUserSelectedSubtitleTrack = isRestoringLiveEngine
+        // A Plex sidecar picked before an engine swap (or downloaded mid-item)
+        // is selected as soon as the new engine has mounted it.
+        self.pendingExternalSubtitleStreamID = pendingExternalSubtitleStreamID
+        attachedExternalSubtitleStreamIDs = []
+        rebuildExternalSubtitleStreamIndex()
+        syncTrackLists()
+        applyAutomaticTrackSelectionIfNeeded()
+        updateAutoSkipState()
+    }
+
+    func startPlaybackIfNeeded(source: PlaybackSource) {
+        guard !hasLoadedSource else { return }
+        hasLoadedSource = true
+        // Returning from a PiP window re-presents the player over the same live
+        // engine; loading again would restart playback from the top. Only load
+        // a fresh engine that has not begun playing yet.
+        guard engine.state == .idle else { return }
+        engine.load(source: source)
+    }
+}

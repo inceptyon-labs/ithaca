@@ -1,0 +1,392 @@
+import SwiftUI
+
+/// Orders the account's Plex servers and turns individual ones off.
+///
+/// Ithaca connects to every enabled server at once and merges what they return,
+/// so this screen answers two questions: which server plays a title that exists
+/// on several (the highest one), and which servers Ithaca should ignore
+/// completely. Edits are written straight to `ServerPriorityStore`.
+///
+/// The editors differ per platform because the input models do. iOS/iPadOS use
+/// native list editing (`EditButton` + `onMove`). tvOS uses per-row position
+/// menus — the same pattern as Library Order. **Do not replace the tvOS menus
+/// with a focus-driven pick-up**: see the warning at the top of
+/// `LibraryOrderSettingsView`.
+struct ServerPrioritySettingsView: View {
+    @Environment(PlexService.self) private var plexService
+    @Environment(ServerConnectionCoordinator.self) private var connections
+    @State private var viewModel: ServerPrioritySettingsViewModel?
+
+    var body: some View {
+        content
+            .background(Color.ithacaBackground.ignoresSafeArea())
+            .ithacaNavigationTitle("Server Priority")
+            .ithacaNavigationBarTitleDisplayModeInline()
+            .task {
+                let model = viewModel ?? ServerPrioritySettingsViewModel(
+                    plexService: plexService,
+                    connections: connections
+                )
+                viewModel = model
+                await model.load()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let viewModel {
+            if viewModel.rows.isEmpty {
+                if viewModel.isLoading {
+                    FeatureLoadingView()
+                } else {
+                    FeatureErrorView(
+                        message: viewModel.accountError ?? Self.noServersMessage,
+                        retryTitle: "Check Again"
+                    ) {
+                        Task { await viewModel.refresh() }
+                    }
+                }
+            } else {
+                editor(viewModel)
+            }
+        } else {
+            FeatureLoadingView()
+        }
+    }
+
+    @ViewBuilder
+    private func editor(_ viewModel: ServerPrioritySettingsViewModel) -> some View {
+        #if os(tvOS)
+        tvEditor(viewModel)
+        #else
+        iosEditor(viewModel)
+        #endif
+    }
+
+    // MARK: - iOS
+
+    #if !os(tvOS)
+    private func iosEditor(_ viewModel: ServerPrioritySettingsViewModel) -> some View {
+        List {
+            if !viewModel.hasEnabledServer {
+                Section {
+                    ServerPriorityNotice(message: Self.nothingEnabledMessage)
+                }
+                .listRowBackground(Color.ithacaSurface)
+            }
+
+            Section {
+                ForEach(viewModel.rows) { row in
+                    ServerPriorityRow(row: row, viewModel: viewModel)
+                }
+                .onMove { offsets, destination in
+                    viewModel.move(fromOffsets: offsets, toOffset: destination)
+                }
+            } header: {
+                Text(viewModel.isSingleServer ? "Server" : "Priority")
+                    .foregroundStyle(Color.ithacaTextSecondary)
+            } footer: {
+                Text(Self.footerText(isSingleServer: viewModel.isSingleServer))
+                    .foregroundStyle(Color.ithacaTextSecondary)
+            }
+            .listRowBackground(Color.ithacaSurface)
+
+            Section {
+                Button {
+                    Task { await viewModel.refresh() }
+                } label: {
+                    HStack {
+                        Text("Check Again")
+                            .foregroundStyle(Color.ithacaTextPrimary)
+
+                        Spacer()
+
+                        if viewModel.isRefreshing {
+                            ProgressView()
+                        }
+                    }
+                }
+                .disabled(viewModel.isRefreshing)
+                .ithacaSuppressTVOSButtonChrome()
+            } footer: {
+                if let accountError = viewModel.accountError {
+                    Text(accountError)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                } else {
+                    Text(Self.refreshFooterText)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                }
+            }
+            .listRowBackground(Color.ithacaSurface)
+        }
+        .contentMargins(.top, 12, for: .scrollContent)
+        .ithacaScrollContentBackgroundHidden()
+        .toolbar {
+            if !viewModel.isSingleServer {
+                EditButton()
+            }
+        }
+    }
+    #endif
+
+    // MARK: - tvOS
+
+    #if os(tvOS)
+    private func tvEditor(_ viewModel: ServerPrioritySettingsViewModel) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: TVSettingsMetrics.sectionSpacing) {
+                if !viewModel.hasEnabledServer {
+                    Text(Self.nothingEnabledMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, TVSettingsMetrics.contentInset)
+                }
+
+                ForEach(viewModel.rows) { row in
+                    TVSettingsSection(title: row.name) {
+                        HStack(spacing: 20) {
+                            Text(row.ownership)
+                                .font(.headline)
+                                .foregroundStyle(Color.ithacaTextPrimary)
+
+                            Spacer(minLength: 24)
+
+                            HStack(spacing: 12) {
+                                ConnectionStatusDot(tone: row.tone, size: 14)
+                                Text(row.status)
+                                    .foregroundStyle(Color.ithacaTextSecondary)
+                            }
+                        }
+                        .frame(minHeight: 72)
+
+                        if !viewModel.isSingleServer {
+                            tvRowDivider
+
+                            TVSettingsMenuRow(
+                                title: "Position",
+                                options: Array(viewModel.rows.indices),
+                                selection: positionBinding(viewModel, for: row.id),
+                                selectedTitle: ServerPriorityPositionName.label(
+                                    for: viewModel.position(of: row.id)
+                                )
+                            ) {
+                                ServerPriorityPositionName.label(for: $0)
+                            }
+                        }
+
+                        tvRowDivider
+
+                        TVSettingsToggleRow(
+                            title: "Use This Server",
+                            isOn: enabledBinding(viewModel, for: row.id, isEnabled: row.isEnabled)
+                        )
+                    }
+                }
+
+                TVSettingsSection(
+                    title: "All Servers",
+                    footer: Self.footerText(isSingleServer: viewModel.isSingleServer)
+                ) {
+                    TVSettingsActionRow(
+                        title: "Check Again",
+                        isLoading: viewModel.isRefreshing
+                    ) {
+                        Task { await viewModel.refresh() }
+                    }
+
+                    if let accountError = viewModel.accountError {
+                        tvRowDivider
+
+                        Text(accountError)
+                            .font(.footnote)
+                            .foregroundStyle(Color.ithacaTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 16)
+                    }
+                }
+            }
+            .frame(maxWidth: 980, alignment: .leading)
+            .padding(.horizontal, 60)
+            .padding(.top, 48)
+            .padding(.bottom, 88)
+        }
+    }
+
+    private var tvRowDivider: some View {
+        Rectangle()
+            .fill(Color.ithacaTextSecondary.opacity(0.16))
+            .frame(height: 1)
+    }
+
+    private func positionBinding(
+        _ viewModel: ServerPrioritySettingsViewModel,
+        for serverID: String
+    ) -> Binding<Int> {
+        Binding(
+            get: { viewModel.position(of: serverID) },
+            set: { viewModel.move(serverID, to: $0) }
+        )
+    }
+
+    private func enabledBinding(
+        _ viewModel: ServerPrioritySettingsViewModel,
+        for serverID: String,
+        isEnabled: Bool
+    ) -> Binding<Bool> {
+        Binding(
+            get: { isEnabled },
+            set: { viewModel.setEnabled($0, for: serverID) }
+        )
+    }
+    #endif
+
+    // MARK: - Copy
+
+    private static let noServersMessage = "No Plex servers found on your account."
+    private static let nothingEnabledMessage = "Every server is turned off, so Ithaca has nothing to show. Downloads still play. Turn a server back on to bring your libraries back."
+    private static let refreshFooterText = "Looks for servers that have come online or been shared with you since Ithaca last checked."
+
+    private static func footerText(isSingleServer: Bool) -> String {
+        guard !isSingleServer else {
+            return "Ithaca uses this server for everything. Turning it off leaves Ithaca with nothing to show until you turn it back on."
+        }
+        return "Ithaca uses every server that is on and merges what they hold. When the same title is on more than one, the server highest in this list plays it. A server that is off is ignored completely — no libraries, no Continue Watching, no search results."
+    }
+}
+
+// MARK: - Shared pieces
+
+/// The server glyph, matching the icon containers used by the
+/// other settings rows.
+private struct ServerPriorityIcon: View {
+    let size: CGFloat
+    let cornerRadius: CGFloat
+    let iconFont: Font
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.ithacaTextSecondary.opacity(0.14))
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: "server.rack")
+                    .font(iconFont)
+                    .foregroundStyle(Color.ithacaTextPrimary)
+            }
+    }
+}
+
+private struct ServerPriorityNotice: View {
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.ithacaTextSecondary)
+
+            Text(message)
+                .foregroundStyle(Color.ithacaTextSecondary)
+                .multilineTextAlignment(.leading)
+
+            Spacer(minLength: 0)
+        }
+        .font(.callout)
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - iOS row
+
+#if !os(tvOS)
+private struct ServerPriorityRow: View {
+    let row: ServerPrioritySettingsViewModel.Row
+    let viewModel: ServerPrioritySettingsViewModel
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ServerPriorityIcon(size: 36, cornerRadius: 12, iconFont: .subheadline.weight(.semibold))
+                .opacity(row.isEnabled ? 1 : 0.4)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(row.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(row.isEnabled ? Color.ithacaTextPrimary : Color.ithacaTextSecondary)
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(row.ownership)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                        .lineLimit(1)
+
+                    Text("·")
+                        .foregroundStyle(Color.ithacaTextSecondary)
+
+                    ConnectionStatusDot(tone: row.tone, size: 7)
+
+                    Text(row.status)
+                        .foregroundStyle(Color.ithacaTextSecondary)
+                }
+                .font(.caption)
+            }
+
+            Spacer(minLength: 12)
+
+            Toggle(
+                "Use \(row.name)",
+                isOn: Binding(
+                    get: { row.isEnabled },
+                    set: { viewModel.setEnabled($0, for: row.id) }
+                )
+            )
+            .labelsHidden()
+        }
+        .padding(.vertical, 4)
+    }
+}
+#endif
+
+// MARK: - Status dot
+
+/// Shared with the Seerr status row. Deliberately not the coral accent: next to
+/// a status word, coral reads as an error.
+struct ConnectionStatusDot: View {
+    let tone: ConnectionStatusTone
+    var size: CGFloat = 9
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+
+    private var color: Color {
+        switch tone {
+        case .good: .green
+        case .degraded: .yellow
+        case .bad: .red
+        case .neutral: Color.ithacaTextSecondary.opacity(0.5)
+        }
+    }
+}
+
+// MARK: - tvOS position labels
+
+#if os(tvOS)
+/// Ordinal labels for the tvOS position menus. Formatted rather than hardcoded
+/// so the list is not capped at a handful of names. `NumberFormatter` is not
+/// `Sendable`, so the cached instance is pinned to the main actor.
+@MainActor
+private enum ServerPriorityPositionName {
+    private static let formatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter
+    }()
+
+    static func label(for index: Int) -> String {
+        formatter.string(from: NSNumber(value: index + 1)) ?? "\(index + 1)"
+    }
+}
+#endif

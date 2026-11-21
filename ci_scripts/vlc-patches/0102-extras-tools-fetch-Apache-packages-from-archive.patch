@@ -1,0 +1,26 @@
+From 0025ad01be6cb4ad5ee3c8311efba3cee43d82d3 Mon Sep 17 00:00:00 2001
+From: Ithaca <ithaca@localhost>
+Date: Sun, 18 Oct 2026 22:36:03 -0400
+Subject: [PATCH] extras/tools: fetch Apache packages from archive.apache.org
+
+downloads.apache.org only carries current releases, so the pinned
+Ant 1.9.7 now returns 404 there and the tools bootstrap fails.
+archive.apache.org keeps every release.
+---
+ extras/tools/packages.mak | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/extras/tools/packages.mak b/extras/tools/packages.mak
+index 9a8db3d198..83c86ab559 100644
+--- a/extras/tools/packages.mak
++++ b/extras/tools/packages.mak
+@@ -1,5 +1,5 @@
+ GNU=https://ftpmirror.gnu.org/gnu
+-APACHE=https://downloads.apache.org/
++APACHE=https://archive.apache.org/dist/
+ SF=https://downloads.sourceforge.net/project
+ VIDEOLAN=https://downloads.videolan.org/pub/contrib
+ 
+-- 
+2.56.0
+

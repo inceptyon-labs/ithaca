@@ -1,0 +1,253 @@
+{
+ "title": "Choose the look for Ithaca's App Store screenshots",
+ "question": "New hand. The roll assigned The One-Sheet. Keep it, take my pick or an alternate, or re-roll again (safer or bolder steers it). Expand a card to see its first iPhone slide full size.",
+ "options": [
+  {
+   "kind": "assigned",
+   "label": "The One-Sheet",
+   "kicker": "THE ROLL",
+   "lineage": "Theatrical one-sheets (27\u00d741 movie posters) and their condensed billing blocks",
+   "thesis": "Each slide is a movie poster for what it sells: the device as key art, the headline as the title, a billing block crediting what Ithaca plays.",
+   "palette": [
+    "#0B0B0D",
+    "#FFFFFF",
+    "#2E5E6E",
+    "#D9B26F"
+   ],
+   "materials": [
+    "full-bleed key art",
+    "tall condensed billing block",
+    "tagline over the title"
+   ],
+   "viewport": "A small tagline at the top, the iPhone as key art with the film's art bleeding around it, the headline as the title treatment, the billing block at the foot.",
+   "risk": "A poster of a poster can bury the app; it holds only while the device is the key art, not a prop.",
+   "raised": [
+    {
+     "from": "r1-challenger-brine",
+     "raise": "One shelf line: every slide's device stands on the same baseline, so the six line up in the store."
+    },
+    {
+     "from": "r1-challenger-versailles",
+     "raise": "One central axis: tagline, title, device and billing block mirrored on it."
+    },
+    {
+     "from": "r1-challenger-portal",
+     "raise": "Title at full poster scale against tiny tracked billing; nothing at middle size."
+    },
+    {
+     "from": "r1-challenger-steps",
+     "raise": "A thin progress line under the device marks where you stopped, the only lit mark besides the screen."
+    }
+   ],
+   "id": "r1-assigned",
+   "html": ".impeccable/mocks/decision/r1-assigned.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/r1-assigned.png"
+  },
+  {
+   "kind": "pick",
+   "label": "After Dark",
+   "kicker": "IMPECCABLE\u2019S PICK",
+   "lineage": "Night photography of real rooms lit only by a screen, as in Apple's own product films",
+   "thesis": "Each slide is a real room after dark, lit only by Ithaca on the screen: the living-room TV, an iPad in bed, an iPhone on the train.",
+   "palette": [
+    "#07080B",
+    "#1E2A3A",
+    "#F2F2F7",
+    "#FF6B4A"
+   ],
+   "materials": [
+    "night photography",
+    "screen glow as the only light",
+    "quiet white type"
+   ],
+   "viewport": "A dark living room with the TV glowing on the wall, the headline in the dark above, the iPhone large in the foreground showing Home.",
+   "risk": "Familiar: Apple's and every streaming service's lifestyle language; needs a generated photo per slide.",
+   "id": "r1-pick",
+   "html": ".impeccable/mocks/decision/r1-pick.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/r1-pick.png"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "civic-bureau-prospectus-late-modern",
+   "label": "The Prospectus",
+   "verdict": "competitive",
+   "lineage": "Late-modern corporate prospectus: a bone-white plate and one rendered ribbon of colour",
+   "thesis": "Almost all white; every bit of colour spent on one ribbon of projector light running from the screen, the dark device alone in the light.",
+   "palette": [
+    "#F7F7FA",
+    "#1B1547",
+    "#6B5CE7",
+    "#7FD8D0"
+   ],
+   "materials": [
+    "bone-white plate",
+    "one rendered light ribbon",
+    "two weights of one face"
+   ],
+   "viewport": "Headline left in two weights, its second line violet; a teal-to-violet ribbon unfurling from the iPhone's screen across the right bleed; the dark iPhone alone below.",
+   "case": "The restraint reads Apple-grade and the device owns the slide; a prospectus says nothing about movies.",
+   "risk": "Can read as a fintech or SaaS ad.",
+   "hero": "https://impeccable.style/worlds/cards/civic-bureau-prospectus-late-modern-hero.webp",
+   "id": "r1-challenger-prospectus",
+   "html": ".impeccable/mocks/decision/r1-challenger-prospectus.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/r1-challenger-prospectus.png"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "brand-identity-canon-art-paul-magazine-program",
+   "label": "The Spot-Colour Issue",
+   "verdict": "competitive",
+   "lineage": "Mid-century magazine identity programs: one spot colour per issue, a mark hidden on every cover",
+   "thesis": "Each slide is a magazine cover in one spot colour, with Ithaca's mark hidden somewhere in it for patient eyes.",
+   "palette": [
+    "#111111",
+    "#FFFFFF",
+    "#FF6B4A",
+    "#2F5DA8"
+   ],
+   "materials": [
+    "coated stock",
+    "one spot colour per slide",
+    "strict two-column grid"
+   ],
+   "viewport": "Masthead across the top, the headline with an oversized initial in the left column, the iPhone in the right column bleeding off the foot, the mark hidden in a poster.",
+   "case": "Gives the six slides a collectible issue-by-issue rhythm film lovers notice; the magazine conceit costs some clarity.",
+   "risk": "Editorial costume, and its lineage is Playboy's art direction.",
+   "hero": "https://impeccable.style/worlds/cards/brand-identity-canon-art-paul-magazine-program-hero.webp",
+   "id": "r1-challenger-spot",
+   "html": ".impeccable/mocks/decision/r1-challenger-spot.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/r1-challenger-spot.png"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "food-fermentation-culinary-theater-pickling-brine-calendar",
+   "label": "Brine Calendar",
+   "verdict": "declined",
+   "lineage": "Pickling jars on seasonal shelves",
+   "thesis": "Slides as labelled jars on a shelf.",
+   "palette": [
+    "#E8F0EA",
+    "#E5604A",
+    "#7A1F3D",
+    "#8A6A43"
+   ],
+   "materials": [
+    "jar glass",
+    "kraft labels"
+   ],
+   "viewport": "Jars on a shelf line around the device.",
+   "case": "Fermentation says nothing about film or Plex.",
+   "risk": "Reads as a food app.",
+   "kept": "One shelf line: every device on the same baseline.",
+   "hero": "https://impeccable.style/worlds/cards/food-fermentation-culinary-theater-pickling-brine-calendar-hero.webp",
+   "id": "r1-challenger-brine"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "architecture-inhabitable-space-versailles-bosquet-vistas",
+   "label": "Versailles Vistas",
+   "verdict": "declined",
+   "lineage": "Formal garden axes and parterres",
+   "thesis": "Slides as axial garden vistas.",
+   "palette": [
+    "#3E5B3A",
+    "#D8C9A6",
+    "#B8923A",
+    "#F4F4F0"
+   ],
+   "materials": [
+    "clipped hedge",
+    "gravel",
+    "gilt"
+   ],
+   "viewport": "A garden axis leading to the device.",
+   "case": "Palace gardens are a costume for a media player.",
+   "risk": "Ornate and off-subject.",
+   "kept": "One central axis for every slide.",
+   "hero": "https://impeccable.style/worlds/cards/architecture-inhabitable-space-versailles-bosquet-vistas-hero.webp",
+   "id": "r1-challenger-versailles"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "webgl-shader-portal",
+   "label": "Shader Portal",
+   "verdict": "declined",
+   "lineage": "Experiential studio sites with full-screen shaders",
+   "thesis": "A living colour field with thin type floating over it.",
+   "palette": [
+    "#0B0F2A",
+    "#FF5A3C",
+    "#FFFFFF"
+   ],
+   "materials": [
+    "shader field",
+    "film grain"
+   ],
+   "viewport": "A colour field with the device floating in it.",
+   "case": "Loses the device to the effect; reads as an agency site.",
+   "risk": "Style over the product.",
+   "kept": "One oversized word against tiny labels.",
+   "hero": "https://impeccable.style/worlds/cards/webgl-shader-portal-hero.webp",
+   "id": "r1-challenger-portal"
+  },
+  {
+   "kind": "challenger",
+   "catalogId": "signals-instruments-drum-machine-step-row",
+   "label": "Step Row",
+   "verdict": "declined",
+   "lineage": "Early-80s drum machine step keys",
+   "thesis": "Sixteen lit keys with a chase light.",
+   "palette": [
+    "#2A2A2E",
+    "#E2412F",
+    "#F28C28",
+    "#F2D13A"
+   ],
+   "materials": [
+    "silkscreen panel",
+    "LED keys"
+   ],
+   "viewport": "A step row under the device.",
+   "case": "A rhythm machine isn't the living room.",
+   "risk": "Music-gear costume.",
+   "kept": "A light that always shows where now is.",
+   "hero": "https://impeccable.style/worlds/cards/signals-instruments-drum-machine-step-row-hero.webp",
+   "id": "r1-challenger-steps"
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "buildPath": {
+  "value": "code",
+  "toggle": true
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "The category standard",
+  "thesis": "A dark gradient, a bold centred headline, the device below: what most players ship, done cleanly.",
+  "palette": [
+   "#0E0F13",
+   "#1C1F27",
+   "#FFFFFF"
+  ],
+  "materials": [
+   "dark gradient",
+   "centred headline"
+  ],
+  "viewport": "Headline and one line on a dark gradient, the iPhone centred below.",
+  "risk": "It is the look of Dusk for Plex's own listing, the app Ithaca descends from.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "660x1434",
+  "comp": ".impeccable/mocks/decision/canon.png"
+ },
+ "steer": true
+}

@@ -1,0 +1,179 @@
+import SwiftUI
+
+enum SettingsSupport {
+    /// The Integrations row's detail: Athena's address, or that there is none.
+    @MainActor
+    static func athenaSubtitle(_ preferences: UserPreferences) -> String {
+        guard let url = AthenaClient(address: preferences.athenaAddress)?.baseURL,
+              let host = url.host(percentEncoded: false) else {
+            return "Not set"
+        }
+        return url.port.map { "\(host):\($0)" } ?? host
+    }
+
+    static let playbackDefaultsFooterText = "Choose preferred stream quality and default audio or subtitle languages. Forced Only limits automatic subtitle selection to forced tracks. Subtitle Size, Background, Color and Position style subtitles drawn on this device; size can also be changed from the player. Raised lifts them clear of text in the picture or a TV's cut-off edge. Subtitles burned into the video by a transcode can't be styled."
+
+    #if os(tvOS)
+    static let playbackBehaviorFooterText = "Play Starts decides what Play does for something you've started: carry on, ask, or start over. Auto-Skip automatically skips intros and credits after a brief countdown. Intro skipping can skip every intro or skip every intro except episode 1 of each season. Continuous Play shows an Up Next screen after TV episodes finish and can auto-start the next one after the configured delay. Pause After counts the current episode too, then pauses autoplay until you confirm. Trailer Previews plays a movie's or show's trailer, muted, behind its page after a few seconds; it also follows Auto-Play Video Previews in Accessibility settings."
+    #else
+    static let playbackBehaviorFooterText = "Play Starts decides what Play does for something you've started: carry on, ask, or start over. Auto-Skip automatically skips intros and credits after a brief countdown. Intro skipping can skip every intro or skip every intro except episode 1 of each season. Continuous Play shows an Up Next screen after TV episodes finish and can auto-start the next one after the configured delay. Pause After counts the current episode too, then pauses autoplay until you confirm. Episode Buttons adds Previous and Next Episode buttons beside Play while you watch a TV episode. Double-Tap to Seek adds left and right double-tap seek zones in the player."
+    #endif
+
+    #if os(tvOS)
+    static let playbackAdvancedFooterText = "Dolby Atmos plays Atmos tracks in MKV and similar files through Apple's player, which sends Atmos to your receiver or TV. HDR & Dolby Vision does the same for HDR10, HDR10+, HLG and Dolby Vision video. Dolby Vision 7 → 8.1 converts Dolby Vision profile 7 (UHD Blu-ray) video so a Dolby Vision TV shows Dolby Vision instead of HDR10; turn it off if those titles misbehave. Your Plex server repackages the file on the fly without re-encoding it, so video quality stays the original's. Force AVPlayer and Force VLCKit bypass automatic engine selection. Enabling one disables the other. Force AVPlayer may fail on formats it cannot handle."
+    #else
+    static let playbackAdvancedFooterText = "Dolby Atmos & Spatial Audio plays Atmos and surround Dolby tracks in MKV and similar files through Apple's player, which enables spatial audio on AirPods. HDR & Dolby Vision does the same for HDR10, HDR10+, HLG and Dolby Vision video on HDR screens. Dolby Vision 7 → 8.1 converts Dolby Vision profile 7 (UHD Blu-ray) video so they play as Dolby Vision instead of HDR10; turn it off if those titles misbehave. Your Plex server repackages the file on the fly without re-encoding it, so video quality stays the original's. Force AVPlayer and Force VLCKit bypass automatic engine selection. Enabling one disables the other. Force AVPlayer may fail on formats it cannot handle."
+    #endif
+    static let downloadsFooterText = "Download Quality selects which Plex media version is saved. Wi-Fi Only lets the system wait for a non-cellular network before starting new transfer tasks. Smart Downloads keeps the next episodes of a show you've downloaded ready on this device, and removes an episode from this device once you've watched it. Nothing is ever deleted from your server."
+    static let navigationFooterText = "Choose which library and Live TV destinations appear in the navigation bar and the order they use. Library Order sets the order of your libraries everywhere in Ithaca; it is saved to your Plex account, so other Plex apps use it too. Server Priority decides which of your servers Ithaca uses, and which one plays a title that is on more than one."
+    static let homeFooterText = "Personalized shelves add recommendations from Ithaca to Home, built from what you watch and rate. Ask for Ratings asks how a movie or show was when you finish it, while Seerr is connected. Show Live TV adds currently airing channels without changing the Live TV tab. Show Pick Something and Show Your Requests turn those rows on or off."
+    static let appearanceFooterText = "System follows your device appearance. Light and Dark override it for the whole app. Hide Spoilers blurs the pictures and hides the summaries of episodes you haven't started."
+    static let aboutFooterText = "Ithaca is open source. Visit the repository."
+    static let accountFooterText = "Clears the saved Plex session and returns to the sign-in flow."
+    static let accountManagementFooterText = "Opens your Plex account settings inside Ithaca. Plex account deletion is available there."
+    static let githubURL = URL(string: "https://github.com/inceptyon-labs/ithaca")!
+    static let plexAccountURL = URL(string: "https://app.plex.tv/desktop/#!/settings/account")!
+
+    static var subtitleLanguageOptions: [String] {
+        var options = [""] + CommonLanguage.allCases.map(\.code)
+
+        if let systemLanguageCode = UserPreferences.systemPreferredSubtitleLanguageCode,
+           !options.contains(systemLanguageCode) {
+            options.insert(systemLanguageCode, at: 1)
+        }
+
+        return options
+    }
+
+    static var audioLanguageOptions: [String] {
+        CommonLanguage.allCases.map(\.code)
+    }
+
+    static var passoutProtectionEpisodeOptions: [Int?] {
+        [nil] + Array(1...10).map(Optional.some)
+    }
+
+    @MainActor
+    static func libraryTabsSummary(_ preferences: UserPreferences) -> String {
+        let visibleCount = preferences.libraryTabOrder.filter {
+            preferences.isLibraryTabVisible($0)
+        }.count
+
+        if visibleCount == preferences.libraryTabOrder.count {
+            return "All Visible"
+        }
+        return "\(visibleCount) Visible"
+    }
+
+    /// Reflects every section of the connected server, including the music and
+    /// photo libraries Ithaca itself does not browse, because the order is shared
+    /// with the Plex account.
+    @MainActor
+    static func libraryOrderSummary(_ plexService: PlexService) -> String {
+        let count = plexService.libraryOrder.sections.count
+        return count == 0 ? "" : "\(count) Libraries"
+    }
+
+    /// Names the server on a single-server account — the count would be noise
+    /// there — and otherwise says how many of them Ithaca is using.
+    @MainActor
+    static func serverPrioritySummary(_ plexService: PlexService) -> String {
+        let servers = plexService.pool.servers
+        guard !servers.isEmpty else { return "" }
+
+        if servers.count == 1, let name = servers.values.first?.name.nilIfEmpty {
+            return name
+        }
+
+        let enabled = servers.keys.filter { plexService.serverPriority.isEnabled($0) }.count
+        return enabled == servers.count ? "\(servers.count) Servers" : "\(enabled) of \(servers.count)"
+    }
+
+    @MainActor
+    static func subtitleLanguageBinding(_ preferences: UserPreferences) -> Binding<String> {
+        Binding(
+            get: { preferences.defaultSubtitleLanguage ?? "" },
+            set: { preferences.defaultSubtitleLanguage = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    static func subtitleDisplayName(for code: String) -> String {
+        code.isEmpty ? "None" : languageDisplayName(for: code)
+    }
+
+    static func languageDisplayName(for code: String) -> String {
+        if let commonLanguage = CommonLanguage(rawValue: code) {
+            return commonLanguage.displayName
+        }
+
+        return Locale.current.localizedString(forLanguageCode: code) ?? code.uppercased()
+    }
+
+    static func passoutProtectionDisplayName(for episodeLimit: Int?) -> String {
+        guard let episodeLimit else { return "Disabled" }
+        return episodeLimit == 1 ? "1 Episode" : "\(episodeLimit) Episodes"
+    }
+}
+
+enum CommonLanguage: String, CaseIterable, Identifiable {
+    case english = "en"
+    case spanish = "es"
+    case french = "fr"
+    case german = "de"
+    case italian = "it"
+    case portuguese = "pt"
+    case dutch = "nl"
+    case russian = "ru"
+    case japanese = "ja"
+    case korean = "ko"
+    case chinese = "zh"
+    case arabic = "ar"
+    case hindi = "hi"
+    case swedish = "sv"
+    case norwegian = "no"
+    case danish = "da"
+    case finnish = "fi"
+    case polish = "pl"
+    case czech = "cs"
+    case romanian = "ro"
+    case turkish = "tr"
+    case thai = "th"
+    case vietnamese = "vi"
+    case indonesian = "id"
+    case malay = "ms"
+    case hebrew = "he"
+
+    var id: String { rawValue }
+    var code: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .english: "English"
+        case .spanish: "Spanish"
+        case .french: "French"
+        case .german: "German"
+        case .italian: "Italian"
+        case .portuguese: "Portuguese"
+        case .dutch: "Dutch"
+        case .russian: "Russian"
+        case .japanese: "Japanese"
+        case .korean: "Korean"
+        case .chinese: "Chinese"
+        case .arabic: "Arabic"
+        case .hindi: "Hindi"
+        case .swedish: "Swedish"
+        case .norwegian: "Norwegian"
+        case .danish: "Danish"
+        case .finnish: "Finnish"
+        case .polish: "Polish"
+        case .czech: "Czech"
+        case .romanian: "Romanian"
+        case .turkish: "Turkish"
+        case .thai: "Thai"
+        case .vietnamese: "Vietnamese"
+        case .indonesian: "Indonesian"
+        case .malay: "Malay"
+        case .hebrew: "Hebrew"
+        }
+    }
+}

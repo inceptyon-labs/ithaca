@@ -1,0 +1,30 @@
+From fd1fa5996092cd1a080fcf1b003d554ec47897a2 Mon Sep 17 00:00:00 2001
+From: Ithaca <ithaca@localhost>
+Date: Wed, 21 Oct 2026 14:02:45 -0400
+Subject: [PATCH] contrib: librist: always use the bundled lz4
+
+librist links an external liblz4 when it finds one and falls back to its
+bundled copy otherwise. On a Mac with an Intel Homebrew in /usr/local, meson
+finds that x86_64 liblz4, librist is built against it, and the iOS/tvOS
+framework link then fails on the missing LZ4 symbols. Use the bundled copy,
+which is what a machine without liblz4 gets anyway.
+---
+ contrib/src/librist/rules.mak | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/contrib/src/librist/rules.mak b/contrib/src/librist/rules.mak
+index d0e36482db..efa3abeccc 100644
+--- a/contrib/src/librist/rules.mak
++++ b/contrib/src/librist/rules.mak
+@@ -16,7 +16,7 @@ ifeq ($(call need_pkg,"librist >= 0.2"),)
+ PKGS_FOUND += librist
+ endif
+ 
+-LIBRIST_CONF = -Dbuilt_tools=false -Dtest=false
++LIBRIST_CONF = -Dbuilt_tools=false -Dtest=false -Dbuiltin_lz4=true
+ ifdef HAVE_WIN32
+ LIBRIST_CONF += -Dhave_mingw_pthreads=true
+ endif
+-- 
+2.56.0
+

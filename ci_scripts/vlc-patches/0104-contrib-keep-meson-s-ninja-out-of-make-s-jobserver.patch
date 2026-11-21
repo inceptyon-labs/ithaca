@@ -1,0 +1,35 @@
+From 36e0620dbf471d77593c6a19e0d69ac03bf6c299 Mon Sep 17 00:00:00 2001
+From: Ithaca <ithaca@localhost>
+Date: Wed, 21 Oct 2026 13:41:02 -0400
+Subject: [PATCH] contrib: keep meson's ninja out of make's jobserver
+
+VLC's tools now build ninja from Kitware's jobserver fork. It joins the
+jobserver advertised in MAKEFLAGS and sets the shared pipe non-blocking,
+after which the GNU make 3.81 that macOS ships fails with "read jobs pipe:
+Resource temporarily unavailable" (and ninja itself with "Could not
+initialize jobserver" when the descriptors are not passed). Clear MAKEFLAGS
+for meson compile and install so ninja schedules its own jobs.
+---
+ contrib/src/main.mak | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/contrib/src/main.mak b/contrib/src/main.mak
+index f8f1715ff9..06877c59d5 100644
+--- a/contrib/src/main.mak
++++ b/contrib/src/main.mak
+@@ -528,7 +528,11 @@ else
+ MESON = $(HOSTTOOLS) meson setup $(MESONFLAGS)
+ endif
+ MESONCLEAN = rm -rf $</build
+-MESONBUILD = meson compile -C $</build $(MESON_BUILD) $(MESONCOMPILEFLAGS) && meson install -C $</build
++# ninja (VLC's tools build Kitware's jobserver fork) joins make's jobserver
++# from MAKEFLAGS and switches its pipe to non-blocking, which the GNU make
++# 3.81 macOS ships cannot read ("read jobs pipe: Resource temporarily
++# unavailable"). Keep ninja out of the jobserver; it schedules its own jobs.
++MESONBUILD = MAKEFLAGS= MFLAGS= meson compile -C $</build $(MESON_BUILD) $(MESONCOMPILEFLAGS) && MAKEFLAGS= MFLAGS= meson install -C $</build
+ 
+ ifeq ($(V),1)
+ CMAKE += -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
+-- 
+2.56.0
+

@@ -1,0 +1,351 @@
+import SwiftUI
+
+struct PosterArtwork: View {
+    static let cornerRadius: CGFloat = 16
+
+    let imageURL: URL?
+    var progress: Double?
+    var width: CGFloat = 130
+    var imageAspectRatio: CGFloat = 2.0 / 3.0
+    var cornerRadius: CGFloat = Self.cornerRadius
+    var showsPlayOverlay: Bool = false
+    var availabilityBadge: String? = nil
+    var isDimmed: Bool = false
+    /// Hide Spoilers: an unstarted episode's still, blurred.
+    var hidesImage: Bool = false
+
+    private var artworkShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
+    var body: some View {
+        IthacaAsyncImage(url: imageURL) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .spoilerBlurred(hidesImage)
+            case .failure:
+                placeholder
+            default:
+                placeholder
+            }
+        }
+        .frame(width: width, height: imageHeight)
+        .overlay {
+            if isDimmed {
+                Color.black.opacity(0.42)
+            }
+        }
+        .overlay {
+            if showsPlayOverlay {
+                Image(systemName: "play.fill")
+                    .font(.system(size: playOverlaySymbolSize, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.92))
+                    .padding(playOverlayPadding)
+                    .background(.ultraThinMaterial, in: Circle())
+                    // No shadow: each one is an offscreen pass per card.
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                    )
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if let availabilityBadge, !availabilityBadge.isEmpty {
+                // White on a solid dark pill, like the progress bar's track. A
+                // material pill took on the poster's colours and the label
+                // disappeared into bright artwork.
+                Text(availabilityBadge)
+                    .font(IthacaFont.badge(ios: .caption.weight(.bold)))
+                    .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, availabilityBadgeHorizontalPadding)
+                    .padding(.vertical, 5)
+                    .background(Color.black.opacity(0.78), in: Capsule())
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
+                    )
+                    .padding(8)
+            }
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let progress, progress > 0 {
+                progressBar(progress: progress)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 8)
+            }
+        }
+        .clipShape(artworkShape)
+    }
+
+    private var isHorizontalArtwork: Bool {
+        imageAspectRatio > 1
+    }
+
+    /// The badge text shrinks to `IthacaFont.badge` on tvOS, so the pill needs
+    /// relatively more horizontal padding there to stay a pill rather than a
+    /// tight box around two words.
+    private var availabilityBadgeHorizontalPadding: CGFloat {
+        #if os(tvOS)
+        9
+        #else
+        7
+        #endif
+    }
+
+    private var playOverlaySymbolSize: CGFloat {
+        #if os(tvOS)
+        isHorizontalArtwork ? 34 : 28
+        #else
+        25
+        #endif
+    }
+
+    private var playOverlayPadding: CGFloat {
+        #if os(tvOS)
+        isHorizontalArtwork ? 16 : 14
+        #else
+        14
+        #endif
+    }
+
+    private var placeholder: some View {
+        artworkShape
+            .fill(Color.ithacaSurface)
+            .overlay {
+                Image(systemName: isHorizontalArtwork ? "play.rectangle" : "film")
+                    .font(IthacaFont.glyphLarge(ios: .title2))
+                    .foregroundStyle(Color.ithacaTextSecondary)
+            }
+    }
+
+    private var imageHeight: CGFloat {
+        guard imageAspectRatio > 0 else { return width * 1.5 }
+        return width / imageAspectRatio
+    }
+
+    /// Resume progress in the neutral TV-app look: white on a dark track.
+    private func progressBar(progress: Double) -> some View {
+        let clampedProgress = max(0, min(progress, 1.0))
+        let height = IthacaPosterMetrics.posterProgressBarHeight
+
+        return ZStack(alignment: .leading) {
+            Capsule()
+                .fill(Color.black.opacity(0.42))
+                .frame(height: height)
+            GeometryReader { geo in
+                Capsule()
+                    .fill(Color.white.opacity(0.92))
+                    .frame(width: geo.size.width * clampedProgress, height: height, alignment: .leading)
+            }
+        }
+        .frame(height: height)
+    }
+}
+
+struct PosterCardText: View {
+    let title: String
+    var subtitle: String?
+    var width: CGFloat = 130
+    /// Adds a small checkmark to the subtitle line (a watched episode, a fully
+    /// watched season). Deliberately quiet: same colour and size as the
+    /// subtitle, so a fully watched row doesn't turn into a wall of badges.
+    var isWatched: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: IthacaPosterMetrics.cardTextSpacing) {
+            titleRow
+
+            subtitleRow
+        }
+    }
+
+    @ViewBuilder
+    private var titleRow: some View {
+        Text(title)
+            .font(IthacaPosterMetrics.titleFont)
+            .foregroundStyle(Color.primary)
+            .lineLimit(2)
+            .frame(width: width, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var subtitleRow: some View {
+        let subtitle = subtitle?.nilIfEmpty
+        if subtitle != nil || isWatched {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let subtitle {
+                    Text(subtitle)
+                        .lineLimit(1)
+                }
+
+                if isWatched {
+                    Image(systemName: "checkmark")
+                        .imageScale(.small)
+                        .fontWeight(.semibold)
+                        .accessibilityLabel("Watched")
+                }
+            }
+            .font(IthacaPosterMetrics.subtitleFont)
+            .foregroundStyle(Color.primary.opacity(0.68))
+            .frame(width: width, alignment: .leading)
+        } else {
+            Text(" ")
+                .font(IthacaPosterMetrics.subtitleFont)
+                .hidden()
+                .frame(width: width, alignment: .leading)
+        }
+    }
+}
+
+/// Reusable poster card with async image, title, and optional progress bar.
+struct PosterCard: View {
+    let imageURL: URL?
+    let title: String
+    var subtitle: String?
+    /// 0...1 progress for partially watched items. Nil hides the bar.
+    var progress: Double?
+    var width: CGFloat = 130
+    var imageAspectRatio: CGFloat = 2.0 / 3.0
+    var showsPlayOverlay: Bool = false
+    var availabilityBadge: String? = nil
+    var isDimmed: Bool = false
+    var isWatched: Bool = false
+    var hidesImage: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            PosterArtwork(
+                imageURL: imageURL,
+                progress: progress,
+                width: width,
+                imageAspectRatio: imageAspectRatio,
+                showsPlayOverlay: showsPlayOverlay,
+                availabilityBadge: availabilityBadge,
+                isDimmed: isDimmed,
+                hidesImage: hidesImage
+            )
+
+            PosterCardText(
+                title: title,
+                subtitle: subtitle,
+                width: width,
+                isWatched: isWatched
+            )
+        }
+        .frame(width: width, alignment: .topLeading)
+    }
+}
+
+struct PlexItemContextMenuContent: View {
+    let item: PlexItem
+    var onMarkWatched: (() -> Void)?
+    var onMarkUnwatched: (() -> Void)?
+    var detailsRoute: AppNavigationRoute? = nil
+    var detailsLabel: String = "View Details"
+
+    var body: some View {
+        if item.canMarkWatchedFromContextMenu, let onMarkWatched {
+            Button(action: onMarkWatched) {
+                Label("Mark Watched", systemImage: "eye")
+            }
+        }
+
+        if item.canMarkUnwatchedFromContextMenu, let onMarkUnwatched {
+            Button(action: onMarkUnwatched) {
+                Label("Mark Unwatched", systemImage: "eye.slash")
+            }
+        }
+
+        if let detailsRoute {
+            NavigationLink(value: detailsRoute) {
+                Label(detailsLabel, systemImage: "info.circle")
+            }
+        }
+
+        if let seasonRoute = item.contextMenuSeasonRoute {
+            NavigationLink(value: seasonRoute) {
+                Label("Go to Season", systemImage: "rectangle.stack")
+            }
+        }
+
+        if let showRoute = item.contextMenuShowRoute {
+            NavigationLink(value: showRoute) {
+                Label("Go to Show", systemImage: "tv.fill")
+            }
+        }
+    }
+}
+
+extension PlexItem {
+    var canMarkWatchedFromContextMenu: Bool {
+        switch type {
+        case .movie, .episode, .clip:
+            return !isWatched
+        case .show, .season:
+            if let leafCount, leafCount > 0, let viewedLeafCount {
+                return viewedLeafCount < leafCount
+            }
+            return !isWatched
+        default:
+            return false
+        }
+    }
+
+    var canMarkUnwatchedFromContextMenu: Bool {
+        switch type {
+        case .movie, .episode, .clip:
+            return isWatched || isPartiallyWatched
+        case .show:
+            if let viewedLeafCount {
+                return viewedLeafCount > 0
+            }
+            return isWatched || isPartiallyWatched
+        case .season:
+            if let viewedLeafCount, viewedLeafCount > 0 {
+                return true
+            }
+            return isWatched || isPartiallyWatched || canMarkWatchedFromContextMenu
+        default:
+            return false
+        }
+    }
+
+    /// A relative of this item — its season or its show — always lives on the
+    /// same server, so the route inherits this item's `serverID`.
+    private func relativeID(_ ratingKey: String) -> PlexItemID {
+        PlexItemID(serverID: serverID, ratingKey: ratingKey)
+    }
+
+    // tvOS has one page per show that every episode/season/show route opens, so
+    // the item's own details entry already lands there; separate season and show
+    // entries would just open the same page again.
+    var contextMenuSeasonRoute: AppNavigationRoute? {
+        #if os(tvOS)
+        return nil
+        #else
+        guard type == .episode, let parentRatingKey else { return nil }
+        return .media(type: .season, id: relativeID(parentRatingKey))
+        #endif
+    }
+
+    var contextMenuShowRoute: AppNavigationRoute? {
+        #if os(tvOS)
+        return nil
+        #else
+        switch type {
+        case .episode:
+            guard let grandparentRatingKey else { return nil }
+            return .media(type: .show, id: relativeID(grandparentRatingKey))
+        case .season:
+            guard let parentRatingKey else { return nil }
+            return .media(type: .show, id: relativeID(parentRatingKey))
+        default:
+            return nil
+        }
+        #endif
+    }
+}

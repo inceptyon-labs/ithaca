@@ -1,0 +1,253 @@
+{
+ "title": "Choose the look for Ithaca's App Store screenshots",
+ "question": "The roll assigned Festival Programme. Keep it, take my pick or an alternate, or re-roll. Expand a card to see its first iPhone slide full size. Sketches use Blender's open movies (CC BY); the final slides use real captures from the app.",
+ "options": [
+  {
+   "id": "assigned",
+   "kind": "assigned",
+   "label": "Festival Programme",
+   "kicker": "THE ROLL",
+   "lineage": "Film festival programme books (Cannes, TIFF, NYFF catalogues)",
+   "thesis": "Each slide is a programme entry: your library billed like a festival screening, with its format line.",
+   "palette": [
+    "#FF6B4A",
+    "#121214",
+    "#F3F4F6",
+    "#24346E"
+   ],
+   "materials": [
+    "two-colour offset print",
+    "section colour bands",
+    "condensed credits blocks"
+   ],
+   "viewport": "A coral section band, the headline set as a film title across the full width, a credits block with the format line, the iPhone below as the entry's still, screening times along the foot.",
+   "risk": "Festival paper can read bookish; it holds only while the device is big and the type heavy.",
+   "raised": [
+    {
+     "from": "challenger-akari",
+     "raise": "The device screen is the only full-colour thing on a slide; everything else stays two-colour print."
+    },
+    {
+     "from": "challenger-nightcity",
+     "raise": "The six slides run as one evening's programme, screening times stepping from 7 PM to the late show."
+    },
+    {
+     "from": "challenger-algorave",
+     "raise": "Each slide's foot prints the next entry's title, so the set reads in order."
+    },
+    {
+     "from": "challenger-merz",
+     "raise": "One type family at its extremes: titles at full width, credits at caption size, nothing between."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/assigned.png"
+  },
+  {
+   "id": "model-pick",
+   "kind": "pick",
+   "label": "Back of the Box",
+   "kicker": "IMPECCABLE\u2019S PICK",
+   "lineage": "4K disc keepcases and their back-cover spec panels",
+   "thesis": "Each slide is the back of a 4K disc case: a big still, a short pitch, and the spec panel collectors read first.",
+   "palette": [
+    "#0A0A0B",
+    "#FFFFFF",
+    "#C9CED6",
+    "#FF6B4A"
+   ],
+   "materials": [
+    "black keepcase plastic",
+    "silver spec type",
+    "full-bleed film still"
+   ],
+   "viewport": "Black case band with the name set as a title treatment, the iPhone over a full-bleed still, a ruled spec grid (video, audio, subtitles) at the foot.",
+   "risk": "Familiar: most home-theater marketing lands here; spec text reads technical and no Dolby or disc logos may appear.",
+   "html": ".impeccable/mocks/decision/model-pick.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/model-pick.png"
+  },
+  {
+   "id": "challenger-bench",
+   "kind": "challenger",
+   "catalogId": "operate-a-cutting-bench-select-rail",
+   "label": "The Select Rail",
+   "verdict": "competitive",
+   "lineage": "A film editor's cutting bench: work print on pins, tape flags",
+   "thesis": "Your library strung as frames on a perforated rail, a tape flag folded at the frame where you stopped.",
+   "palette": [
+    "#FF6B4A",
+    "#0B0B0C",
+    "#FFFFFF",
+    "#3A3A3E"
+   ],
+   "materials": [
+    "coarse film grain",
+    "perforated rail",
+    "folded tape flag"
+   ],
+   "viewport": "Coral grain field, the rail crossing at a fixed height with poster frames, the flag on the resumed film, the iPhone in a punched white window below.",
+   "case": "Film lovers read a strip at once and the flag is Continue Watching; loses on native Apple feel.",
+   "risk": "Production-tool imagery can read as an editing app.",
+   "hero": "https://impeccable.style/worlds/cards/operate-a-cutting-bench-select-rail-hero.webp",
+   "html": ".impeccable/mocks/decision/challenger-bench.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/challenger-bench.png"
+  },
+  {
+   "id": "challenger-viewfinder",
+   "kind": "challenger",
+   "catalogId": "pop-culture-shelf-viewfinder-bracket-hud",
+   "label": "The Readout",
+   "verdict": "competitive",
+   "lineage": "Viewfinder brackets and AV receiver front-panel readouts",
+   "thesis": "A full-bleed film still, brackets closing on the device, and the format readouts in the corners.",
+   "palette": [
+    "#000000",
+    "#FFFFFF",
+    "#F2A93B",
+    "#9AA0A6"
+   ],
+   "materials": [
+    "segmented readout type",
+    "corner focus brackets",
+    "letterbox bars"
+   ],
+   "viewport": "Letterboxed still edge to edge, brackets around the iPhone, corner readouts (2160p, DV, ATMOS, DIRECT) and a resume counter, headline under the top bar.",
+   "case": "The readouts are the direct-play claim; camcorder chrome is consumer video, not home theater.",
+   "risk": "Readout type at thumbnail size can turn to noise.",
+   "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-viewfinder-bracket-hud-hero.webp",
+   "html": ".impeccable/mocks/decision/challenger-viewfinder.html",
+   "htmlFrame": "660x1434",
+   "comp": ".impeccable/mocks/decision/challenger-viewfinder.png"
+  },
+  {
+   "id": "challenger-akari",
+   "kind": "challenger",
+   "catalogId": "paper-folds-pleats-deployable-akari-light-sculpture",
+   "label": "Akari Lanterns",
+   "verdict": "declined",
+   "lineage": "Noguchi-style washi lanterns",
+   "thesis": "Slides as glowing paper volumes in a dim room.",
+   "palette": [
+    "#F3E9D2",
+    "#C8A97E",
+    "#2B2B2B",
+    "#D9452B"
+   ],
+   "materials": [
+    "washi",
+    "bamboo ribs"
+   ],
+   "viewport": "A lantern glow around the device.",
+   "case": "Paper lanterns say neither Plex nor home theater.",
+   "risk": "Reads as a lighting brand.",
+   "kept": "One light source: the screen is the only lit thing.",
+   "hero": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-akari-light-sculpture-hero.webp"
+  },
+  {
+   "id": "challenger-nightcity",
+   "kind": "challenger",
+   "catalogId": "light-shadow-caustics-rain-night-cityscape",
+   "label": "Rain-Night City",
+   "verdict": "declined",
+   "lineage": "Blue hour into rain-dark night",
+   "thesis": "The set as a city's evening, hour by hour.",
+   "palette": [
+    "#1B2A6B",
+    "#0A0A0F",
+    "#F2A33A",
+    "#C9D1DA"
+   ],
+   "materials": [
+    "wet reflections",
+    "neon"
+   ],
+   "viewport": "Skyline band over the device.",
+   "case": "Mood without the product; says nothing about your library or direct play.",
+   "risk": "Generic night-mode atmosphere.",
+   "kept": "The six slides run as one evening.",
+   "hero": "https://impeccable.style/worlds/cards/light-shadow-caustics-rain-night-cityscape-hero.webp"
+  },
+  {
+   "id": "challenger-algorave",
+   "kind": "challenger",
+   "catalogId": "medium-native-algorave-source-floor",
+   "label": "Algorave Floor",
+   "verdict": "declined",
+   "lineage": "Live-coded club visuals",
+   "thesis": "The library as a code buffer on a projector.",
+   "palette": [
+    "#000000",
+    "#39FF88",
+    "#FF3DCB",
+    "#F2A93B"
+   ],
+   "materials": [
+    "projected code",
+    "phosphor"
+   ],
+   "viewport": "Code lines around the device.",
+   "case": "Plex owners watching films don't identify with live coding.",
+   "risk": "Reads as a developer tool.",
+   "kept": "What's next is visible before it plays.",
+   "hero": "https://impeccable.style/worlds/cards/medium-native-algorave-source-floor-hero.webp"
+  },
+  {
+   "id": "challenger-merz",
+   "kind": "challenger",
+   "catalogId": "design-canon-merz-collage-page",
+   "label": "Merz Collage",
+   "verdict": "declined",
+   "lineage": "Dada assemblage pages",
+   "thesis": "Tickets and torn type glued around the device.",
+   "palette": [
+    "#E9E1CF",
+    "#8C8C8C",
+    "#A33A2E",
+    "#1A1A1A"
+   ],
+   "materials": [
+    "ticket stock",
+    "torn newsprint"
+   ],
+   "viewport": "Scraps pinned around the device.",
+   "case": "Fights the native, quiet app it sells.",
+   "risk": "Chaos at thumbnail size.",
+   "kept": "Type at its extremes from one case.",
+   "hero": "https://impeccable.style/worlds/cards/design-canon-merz-collage-page-hero.webp"
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "buildPath": {
+  "value": "code",
+  "toggle": true
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "The category standard",
+  "thesis": "A dark gradient, a bold centred headline, the device below: what most players ship, done cleanly.",
+  "palette": [
+   "#0E0F13",
+   "#1C1F27",
+   "#FFFFFF"
+  ],
+  "materials": [
+   "dark gradient",
+   "centred headline"
+  ],
+  "viewport": "Headline and one line on a dark gradient, the iPhone centred below.",
+  "risk": "It is the look of Dusk for Plex's own listing, the app Ithaca descends from.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "660x1434",
+  "comp": ".impeccable/mocks/decision/canon.png"
+ },
+ "steer": true
+}

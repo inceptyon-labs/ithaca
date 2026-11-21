@@ -1,0 +1,202 @@
+import Foundation
+
+@MainActor
+@Observable
+final class SearchViewModel {
+    private let plexService: PlexService
+    private let seerrService: SeerrService
+
+    var query = ""
+    private(set) var results: [SearchMediaResultGroup] = []
+    private(set) var isSearching = false
+    private(set) var error: String?
+    private(set) var hasSearched = false
+    /// The servers the results on screen came from. Search reappearing
+    /// (Back from a result, the tvOS tab) re-runs the query only when they
+    /// changed (`rerunIfServersChanged()`).
+    private var searchedRevision: ServerContentRevision?
+    /// The query the results on screen are for, and their Seerr part, so a
+    /// re-run of the same query can keep showing them until it finishes.
+    private var searchedQuery: String?
+    private var seerrItems: [SeerrSearchMedia] = []
+
+    private var searchTask: Task<Void, Never>?
+
+    init(plexService: PlexService, seerrService: SeerrService) {
+        self.plexService = plexService
+        self.seerrService = seerrService
+    }
+
+    func searchDebounced() {
+        searchTask?.cancel()
+
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            results = []
+            error = nil
+            hasSearched = false
+            isSearching = false
+            searchedQuery = nil
+            seerrItems = []
+            return
+        }
+
+        searchTask = Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            await performSearch(trimmed)
+        }
+    }
+
+    /// Runs the current query again if the connected servers changed since it
+    /// last ran.
+    func rerunIfServersChanged() {
+        guard hasSearched, searchedRevision != plexService.serverContentRevision else { return }
+        searchDebounced()
+    }
+
+    func imageURL(for item: SearchMediaResult, width: Int, height: Int) -> URL? {
+        item.imageURL(
+            plexService: plexService,
+            seerrService: seerrService,
+            width: width,
+            height: height
+        )
+    }
+
+    func availabilityBadge(for item: SearchMediaResult) -> String? {
+        item.availabilityBadge(using: seerrService)
+    }
+
+    /// Fans the query out to every connected server and republishes the merged
+    /// results as each one answers, so a local server's hits are on screen
+    /// while a relayed server is still searching. Seerr layers on top
+    /// afterwards, exactly as before.
+    ///
+    /// Re-running the query already on screen (a server connected or dropped)
+    /// publishes once, when every server has answered, and keeps the previous
+    /// Seerr cards until Seerr answers again: a partial merge would drop the
+    /// slower servers' hits and the Seerr cards from under the user.
+    private func performSearch(_ query: String) async {
+        let isRerun = query == searchedQuery && !results.isEmpty
+        isSearching = true
+        error = nil
+        searchedRevision = plexService.serverContentRevision
+        if !isRerun { seerrItems = [] }
+
+        let seerrTask: Task<[SeerrSearchMedia], Never> = Task { [seerrService] in
+            guard seerrService.isAvailableForCurrentContext else {
+                return [SeerrSearchMedia]()
+            }
+            return (try? await seerrService.search(query: query)) ?? []
+        }
+        defer { seerrTask.cancel() }
+
+        let serverIDs = plexService.mergeServerIDs
+        var resultsByServer = [[PlexSearchResult]](repeating: [], count: serverIDs.count)
+        var failureCount = 0
+        var firstFailure: (any Error)?
+        var plexGroups: [PlexSearchResult] = []
+
+        for await result in plexService.streamSearch(query: query) {
+            guard !Task.isCancelled else { return }
+
+            switch result.value {
+            case let .success(groups):
+                resultsByServer[result.rank] = groups
+            case let .failure(error):
+                failureCount += 1
+                firstFailure = firstFailure ?? error
+            }
+
+            let merged = SearchMerge.merge(resultsByServer)
+            plexService.registerAlternates(merged.alternates)
+            plexGroups = merged.groups
+            if !isRerun {
+                results = Self.makeGroups(plexGroups: plexGroups, seerrItems: [])
+                searchedQuery = query
+                hasSearched = true
+            }
+        }
+
+        guard !Task.isCancelled else { return }
+        if isRerun {
+            results = Self.makeGroups(plexGroups: plexGroups, seerrItems: seerrItems)
+        }
+
+        let freshSeerrItems = await seerrTask.value
+        guard !Task.isCancelled else { return }
+        seerrItems = freshSeerrItems
+        results = Self.makeGroups(plexGroups: plexGroups, seerrItems: freshSeerrItems)
+        searchedQuery = query
+        hasSearched = true
+        // An error only when every server failed and there is nothing to show;
+        // one unreachable server must not hide the other's hits.
+        if results.isEmpty, failureCount == serverIDs.count, let firstFailure {
+            self.error = firstFailure.localizedDescription
+        }
+        isSearching = false
+    }
+
+    private static func makeGroups(
+        plexGroups: [PlexSearchResult],
+        seerrItems: [SeerrSearchMedia]
+    ) -> [SearchMediaResultGroup] {
+        var groups = plexGroups.map {
+            SearchMediaResultGroup(
+                id: $0.type ?? $0.title,
+                title: $0.title,
+                type: $0.type,
+                items: $0.items.map(SearchMediaResult.plex)
+            )
+        }
+
+        let plexItems = plexGroups.flatMap(\.items)
+        let plexTMDBIDs = Set(
+            plexItems.flatMap(\.guids).compactMap { $0.value(for: "tmdb") }.compactMap(Int.init)
+        )
+        let plexFallbackKeys = Set(plexItems.map(fallbackKey))
+
+        for item in seerrItems {
+            guard let type = item.supportedMediaType,
+                  item.mediaInfo?.status != .available,
+                  item.mediaInfo?.status != .blocklisted,
+                  !plexTMDBIDs.contains(item.id),
+                  !plexFallbackKeys.contains(fallbackKey(item)) else {
+                continue
+            }
+
+            let targetType = type == .tv ? "show" : "movie"
+            if let index = groups.firstIndex(where: { $0.type == targetType }) {
+                groups[index].items.append(.seerr(item))
+            } else {
+                groups.append(
+                    SearchMediaResultGroup(
+                        id: targetType,
+                        title: type == .tv ? "Shows" : "Movies",
+                        type: targetType,
+                        items: [.seerr(item)]
+                    )
+                )
+            }
+        }
+
+        return groups.filter { !$0.items.isEmpty }
+    }
+
+    private static func fallbackKey(_ item: PlexItem) -> String {
+        "\(item.type.rawValue):\(normalized(item.title)):\(item.year.map(String.init) ?? "")"
+    }
+
+    private static func fallbackKey(_ item: SeerrSearchMedia) -> String {
+        let type = item.supportedMediaType == .tv ? "show" : "movie"
+        return "\(type):\(normalized(item.displayTitle)):\(item.year.map(String.init) ?? "")"
+    }
+
+    private static func normalized(_ value: String) -> String {
+        String(
+            value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+                .filter { $0.isLetter || $0.isNumber }
+        )
+    }
+}
