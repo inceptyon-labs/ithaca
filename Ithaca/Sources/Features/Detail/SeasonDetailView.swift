@@ -6,6 +6,7 @@ struct SeasonDetailView: View {
     @Environment(UserPreferences.self) private var preferences
     @Environment(DownloadManager.self) private var downloadManager
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @State private var viewModel: SeasonDetailViewModel
 
@@ -280,7 +281,7 @@ struct SeasonDetailView: View {
     }
 
     private var usesInlineEpisodeSummaryLayout: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
+        isRegularCanvas(sizeClass, verticalSizeClass)
     }
 
     @ViewBuilder

@@ -7,11 +7,12 @@ art, darkened and tinted toward poster black. Rendered by headless Chrome.
 
 Captures come from capture.sh against the "Ithaca Demo" library (Blender Studio open movies and public-domain
 films), named <device>-<shot>.png: phone-*.png from the iPhone 18 Pro Max simulator (1320x2868), ipad-*.png from the
-iPad Pro 13-inch (2064x2752), tv-*.png from the Apple TV 4K (3840x2160). Key art is the same picture the app shows
-behind the hero, at full size, in keyart/. Slides whose capture is missing are skipped.
+iPad Pro 13-inch (2064x2752), tv-*.png from the Apple TV 4K (3840x2160), duo-*.png from the iPhone Duo's inner screen
+(2853x2007, unfolded in landscape; DISPLAY_ID=primary-1). Key art is the same picture the app shows behind the hero, at
+full size, in keyart/. Slides whose capture is missing are skipped.
 
 Writes screenshots/iphone/*.jpg (1320x2868), screenshots/iphone-6.3/*.jpg (1206x2622, scaled from those),
-screenshots/ipad/*.jpg and screenshots/appletv/*.jpg. The device frame is drawn, since Apple's terms allow nothing
+screenshots/ipad/*.jpg, screenshots/appletv/*.jpg and screenshots/duo/*.jpg. The device frame is drawn, since Apple's terms allow nothing
 over their bezels. Fonts are Anton and Six Caps (SIL OFL, fonts/).
 """
 import base64, pathlib, subprocess, sys, tempfile
@@ -29,8 +30,8 @@ IMPECCABLE = str(pathlib.Path.home() / ".claude/plugins/cache/impeccable/impecca
 # fitted to the block's width; <i>..</i> are the small role labels. foot: the line at the bottom.
 SLIDES = [
     dict(name="01-home", shot="home", art="sintel.jpg", tint="#2E5E6E", stop=.54,
-         art_by=dict(ipad="sintel-art.jpg", tv="sintel-art.jpg"),
-         place=dict(phone=(-888, -432, 2991), ipad=(-952, 0, 3972)),
+         art_by=dict(ipad="sintel-art.jpg", tv="sintel-art.jpg", duo="sintel-art.jpg"),
+         place=dict(phone=(-888, -432, 2991), ipad=(-952, 0, 3972), duo=(-264, -2, 3131)),
          tag="No ads. Every screen in the house.",
          title=("The Plex app", "you wanted<em>.</em>"),
          bill=["INCEPTYON LABS <i>PRESENTS</i> ITHACA FOR PLEX <i>DIRECT PLAY FROM</i> YOUR OWN SERVER",
@@ -39,7 +40,7 @@ SLIDES = [
                "<i>ALSO STARRING</i> SKIP INTRO · UP NEXT · SHAREPLAY · AIRPLAY · SIRI"],
          foot="Now playing on your Apple TV, iPhone and iPad"),
     dict(name="02-direct", shot="detail", art="tos-art.jpg", tint="#3B4A55", stop=.33,
-         place=dict(phone=(-1104, 0, 3530), ipad=(-472, 0, 3011)),
+         place=dict(phone=(-1104, 0, 3530), ipad=(-472, 0, 3011), duo=(-148, 2, 2896)),
          tag="No transcoding unless you ask",
          title=("Your 4K", "stays 4K<em>.</em>"),
          bill=["<i>PICTURE IN</i> 4K · HEVC · DOLBY VISION 7 AND 8 · HDR10+ · HLG",
@@ -48,7 +49,7 @@ SLIDES = [
                "<i>PLAYED BY</i> AVPLAYER AND VLC <i>WITH</i> PLEX AS THE FALLBACK"],
          foot="Dolby Vision, Atmos, and the PGS subtitles other apps burn in"),
     dict(name="03-request", shot="request", art="daily-dweebs.jpg", tint="#5A4632", stop=.12,
-         place=dict(phone=(-1104, 0, 3530), ipad=(-468, 0, 3003)),
+         place=dict(phone=(-1104, 0, 3530), ipad=(-468, 0, 3003), duo=(-140, 2, 2890)),
          tag="Works with Seerr",
          title=("Don't have it<em>?</em>", "Request it<em>.</em>"),
          bill=["<i>REQUEST</i> MOVIES AND WHOLE SEASONS <i>SEE</i> YOUR REQUESTS ON HOME",
@@ -77,7 +78,7 @@ SLIDES = [
                "<i>WATCH STATE FROM</i> YOUR PLEX ACCOUNT <i>AND</i> SEVERAL SERVERS IN ONE HOME"],
          foot="Just the movies and shows you put there."),
     dict(name="06-show", shot="show", art="caminandes-art.jpg", tint="#3E6A8A", stop=.97,
-         place=dict(phone=(-1108, -2, 3539), ipad=(-476, -2, 3019)),
+         place=dict(phone=(-1108, -2, 3539), ipad=(-476, -2, 3019), duo=(-144, 2, 2890)),
          tag="Skip intro. Skip credits.",
          title=("One more", "episode<em>.</em>"),
          bill=["<i>SKIP</i> INTRO · CREDITS <i>THEN</i> UP NEXT <i>RESUMES</i> ON EVERY DEVICE",
@@ -97,6 +98,9 @@ DEVICES = {
     "appletv": dict(raw="tv", bill_lines=2, w=3840, h=2160, cap=(3840, 2160, 0), screen=2360, frame=30, shelf=1600,
                     tag=60, tag_top=44, title_top=1700, title_w=2300, title_max=230, bill_top=1930, bill_w=2000, bill=60, date=30,
                     date_top=2090, fade=(900, 1500), one_line=True),
+    "duo": dict(raw="duo", bill_lines=3, w=2853, h=2007, cap=(2853, 2007, 176), screen=1560, frame=24, shelf=1330,
+                tag=56, tag_top=44, title_top=1430, title_w=1900, title_max=200, bill_top=1640, bill_w=1700, bill=52, date=28,
+                date_top=1920, fade=(780, 1300), one_line=True),
 }
 BLACK = "#0B0B0D"
 

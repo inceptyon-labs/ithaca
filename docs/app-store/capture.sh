@@ -4,6 +4,7 @@
 #   capture.sh <sim udid> raw/phone-home.png 12 -IthacaScreenshotScreen home
 # Env: ITHACA_DEMO_TOKEN, the demo account's Plex token (required). ITHACA_DEMO_SEERR and
 # ITHACA_DEMO_SEERR_SESSION, the Seerr address and the demo account's connect.sid, for screens that show Seerr.
+# DISPLAY_ID, the screen on a device with two (iPhone Duo: primary-1 is the inner screen, primary the outer one).
 # Screen arguments are listed in docs/screenshots.md.
 SIM=$1; OUT=$2; WAIT=$3; shift 3
 APP=com.inceptyon.ithaca
@@ -15,5 +16,5 @@ args=(-IthacaScreenshotMode YES -IthacaScreenshotToken $ITHACA_DEMO_TOKEN)
 [[ -n $ITHACA_DEMO_SEERR ]] && args+=(-IthacaScreenshotSeerr $ITHACA_DEMO_SEERR -IthacaScreenshotSeerrSession $ITHACA_DEMO_SEERR_SESSION)
 xcrun simctl launch $SIM $APP $args "$@" >/dev/null
 sleep $WAIT
-xcrun simctl io $SIM screenshot $OUT >/dev/null 2>&1
+xcrun simctl io $SIM screenshot ${DISPLAY_ID:+--display=$DISPLAY_ID} $OUT >/dev/null 2>&1
 echo $OUT

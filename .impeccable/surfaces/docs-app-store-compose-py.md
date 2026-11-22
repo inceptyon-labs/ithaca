@@ -7,7 +7,7 @@ related_targets: ["docs/app-store/capture.sh"]
 
 # App Store screenshot slides
 
-Scope: the App Store screenshots for Ithaca for Plex, six slides per device (iPhone 1320 × 2868, scaled to 1206 × 2622; iPad 13-inch 2064 × 2752; Apple TV 3840 × 2160) and the product page header, rendered by `docs/app-store/compose.py` from simulator captures of the demo library. Mode: Persuade.
+Scope: the App Store screenshots for Ithaca for Plex, six slides per device (iPhone 1320 × 2868, scaled to 1206 × 2622; iPad 13-inch 2064 × 2752; Apple TV 3840 × 2160; iPhone Duo 2853 × 2007, the inner screen in landscape) and the product page header, rendered by `docs/app-store/compose.py` from simulator captures of the demo library. Mode: Persuade.
 
 Audience: Plex owners, many with remux libraries, choosing a player on the App Store. Belief to land: this is the native player that plays their files as made. Proof: the real app screens, captured against the "Ithaca Demo" library (Blender Studio open movies, public-domain films). Constraints: no Plex, Dolby, DTS or Apple logos; no invented claims, reviews or awards; no third-party copyrighted art; must not look like Dusk for Plex's listing (dark gradient, centred headline, device below).
 

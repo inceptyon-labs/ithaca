@@ -44,8 +44,12 @@ struct HomeCinematicHeroLayout {
     var summaryFont: Font = .body
     var summaryLineLimit: Int = 3
     var summaryLineSpacing: CGFloat = 4
+    /// iPhone's banner leaves the summary out and centres the whole block (title,
+    /// text, action button, pager); the wider layouts lead-align it with the summary.
+    var showsSummary: Bool = true
+    var centersContent: Bool = false
 
-    static let ios = HomeCinematicHeroLayout(summaryLineLimit: 2)
+    static let ios = HomeCinematicHeroLayout(summaryLineLimit: 2, showsSummary: false, centersContent: true)
     /// iPad (regular width): a near-full-screen take on the tvOS hero. It fills
     /// the scroll viewport down to the bottom inset, so only the first shelf's
     /// header and the top of its posters peek in under it — enough of a hint
@@ -632,21 +636,11 @@ struct HomeCinematicHero: View {
     }
 
     private var showsHeroSummary: Bool {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom != .phone
-        #else
-        true
-        #endif
+        layout.showsSummary
     }
 
-    // iPhone centers the entire hero block — title logo, text, action button, and
-    // pager — while iPad and tvOS keep the leading-aligned cinematic layout.
     private var centersHeroContent: Bool {
-        #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .phone
-        #else
-        false
-        #endif
+        layout.centersContent
     }
 
     private var heroContentHorizontalAlignment: HorizontalAlignment {

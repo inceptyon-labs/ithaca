@@ -418,12 +418,20 @@ in Ithaca. Read this with `docs/codebase-map.md`, `STYLE.md`, and `docs/data-and
   prefetched artwork as each request completes; waiting for the entire batch lets
   one slow image make other pages pop in late. Extend it carefully; it is stateful
   and timing-sensitive.
-- On iPad (regular width) the home hero uses `HomeCinematicHeroLayout.iPad`: it fills
+- On iPad and the iPhone Duo's inner screen (`isRegularCanvas`, below) the home hero uses `HomeCinematicHeroLayout.iPad`: it fills
   the scroll viewport down to the bottom inset (`heroHeightFactor: 1`), so at rest only
   the first shelf's header and poster tops peek in below it — that peek is iPad's
   scroll affordance. Portrait is capped at a square (`maxHeightToWidthRatio: 1`) so a
-  16:9 backdrop isn't cropped to a sliver. iPhone and compact-width iPad multitasking
-  keep `.ios`. `HomeIOSView.heroLayout` makes the choice.
+  16:9 backdrop isn't cropped to a sliver. iPhone (landscape included) and compact-width
+  iPad multitasking keep `.ios`, which centres the block and drops the summary
+  (`showsSummary`, `centersContent`). `HomeIOSView.heroLayout` makes the choice.
+- Layout that differs between iPhone and iPad keys off `isRegularCanvas(horizontal, vertical)`
+  (`Shared/View+Platform.swift`), not `userInterfaceIdiom`: regular width and height is iPad
+  and the iPhone Duo's inner screen, which reports as an iPhone. Home's hero, its play
+  button width and the Recently Added row length, search's carousels and the season page's
+  inline episode summaries all use it. `userInterfaceIdiom` stays only where the device
+  itself matters: the iPhone tab bar's five-tab limit, the player's status-bar inset and
+  the subtitle base size.
 - On tvOS, `HomeCinematicHero` pixel-aligns its render size and caps image dynamic
   range to standard to avoid real-device HDR/SDR seams between the backdrop fade and
   the shelves below.
@@ -1195,8 +1203,8 @@ in Ithaca. Read this with `docs/codebase-map.md`, `STYLE.md`, and `docs/data-and
   request. Plex groups publish first; external movies/shows are deduplicated and
   appended with request-state badges. A Seerr failure stays silent and never
   breaks Plex search.
-- Presentation is platform-adaptive so search feels native everywhere. tvOS and iPad
-  (`userInterfaceIdiom == .pad`) render each result group as a
+- Presentation is platform-adaptive so search feels native everywhere. tvOS, iPad and the
+  iPhone Duo's inner screen (`isRegularCanvas`) render each result group as a
   `PlexItemPosterCarouselSection` (the same poster carousels Home uses for hubs); iPhone
   renders each group as a titled `PlexItemPosterGrid` section (matching the library grid).
   Plex `/hubs/search` returns one hub per media type, which maps cleanly onto a carousel

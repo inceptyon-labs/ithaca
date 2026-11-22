@@ -53,12 +53,13 @@ Sizes (Apple's screenshot specifications page, read 2026-11-20). Up to 10 per si
 - iPhone, required: 1206 × 2622 (Dynamic Island, medium display). Optional: 1320 × 2868 (large display).
 - iPad 13-inch, required for an app that runs on iPad: 2064 × 2752.
 - Apple TV, required: 3840 × 2160 (or 1920 × 1080).
-- iPhone Duo (2853 × 2007 inner, landscape): optional now, required from April 2027 for apps built with the iOS 27.1 SDK or later.
+- iPhone Duo (2853 × 2007 inner, landscape): optional now, required from April 2027 for apps built with the iOS 27.1 SDK or later. Uploaded as `APP_IPHONE_DUO`, which also earns the "made for iPhone Duo" badge.
 - Product page header: 3840 × 1646 (21:9), art safe area 1646 × 661 at x 1097, y 493; or the universal asset, 5244 × 2950, safe area 1402 × 962 at x 1921, y 660 (what Argo used).
 
 - [x] **Claude:** direction options through Impeccable on its decision page (two hands). **You** picked **The One-Sheet**: each slide is a movie poster, the device as key art, the claim as the title, a billing block crediting the features (`.impeccable/surfaces/docs-app-store-compose-py.md`).
 - [x] **Claude:** `docs/app-store/capture.sh` (simulators signed in to the review account through DEBUG screenshot mode, `docs/screenshots.md`) and `compose.py` (slides, header). `place.py` measures where the app draws each key art so the poster art lines up with the screen.
 - [x] **Claude:** six slides each for iPhone 6.9-inch and 6.3-inch, iPad 13-inch and Apple TV, plus the header (`docs/app-store/screenshots/`). iPhone and iPad: Home, 4K remux (detail), Seerr request, Describe It, Downloads, Up Next. Apple TV swaps Downloads for the library. Slide 6 is the Caminandes show page. Impeccable's finish review ran twice: the second verdict scored 6 of 8 fixes resolved, with 2 partial and 2 regressions; all were addressed afterwards except a clipped "Pick Again" pill at the bottom of Apple TV slide 4, and that last batch has not been re-scored. The design record is `DESIGN.md` (App Store art only; `STYLE.md` still governs the app).
+- [x] **Claude:** six iPhone Duo slides (`screenshots/duo/`, 2026-11-21), the same shots as iPhone, from the inner screen of the "Ithaca Duo" simulator. Not yet re-scored by Impeccable's finish review.
 - The look must be clearly Ithaca's own. Dusk's listing uses a dark ground, a centred headline and the device below it.
 
 ## 6. App Store Connect
@@ -71,7 +72,7 @@ Sizes (Apple's screenshot specifications page, read 2026-11-20). Up to 10 per si
 - [x] **You:** Ithaca Pro's price: $4.99 (2026-11-21), Ready to Submit.
 - [x] **Claude (API):** the Apple TV Privacy Policy (App Information, free text, because Apple TV can't open a URL): the web policy as plain text (`privacyPolicyText`). Change it whenever `inceptyon-website/public/ithaca/privacy.html` changes.
 - [x] **Claude:** export compliance. VLCKit carries libgcrypt (HLS AES and SRTP) beside Apple's Secure Transport: standard encryption, as with Argo's WebRTC, so France is left out of availability and `ITSAppUsesNonExemptEncryption` stays false.
-- [x] **Claude (API):** iOS and tvOS version pages: 24 screenshots (iPhone 6.9 and 6.3, iPad 13, Apple TV; all processed), description (with a Seerr requests section), keywords, promotional text option 1, support URL `https://inceptyon.io/ithaca/support`.
+- [x] **Claude (API):** iOS and tvOS version pages: 30 screenshots (iPhone 6.9 and 6.3, iPad 13, iPhone Duo, Apple TV; all processed), description (with a Seerr requests section), keywords, promotional text option 1, support URL `https://inceptyon.io/ithaca/support`.
 - [x] **Claude (API):** the product page header (`docs/app-store/screenshots/header.png`, 5244 × 2950) on both versions, through the asset library (`appAssetLibraryImages`, placement `PRODUCT_PAGE_HEADER_ASSET`).
 - [x] **Claude (API):** App Review information on both versions: the demo account, notes from `listing.md`, contact copied from Argo.
 

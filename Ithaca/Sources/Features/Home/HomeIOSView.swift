@@ -4,6 +4,7 @@ import UIKit
 
 struct HomeIOSView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(UserPreferences.self) private var preferences
     @Environment(SeerrService.self) private var seerrService
     @Binding var path: NavigationPath
@@ -66,7 +67,7 @@ struct HomeIOSView: View {
                                     }
                                     .homeHeroNativeButtonStyle()
                                     .frame(
-                                        maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 300 : 240,
+                                        maxWidth: isRegularCanvas(horizontalSizeClass, verticalSizeClass) ? 300 : 240,
                                         alignment: .leading
                                     )
                                     .simultaneousGesture(
@@ -221,12 +222,11 @@ struct HomeIOSView: View {
         }
     }
 
-    /// Regular-width iPad gets the near-full-screen hero; iPhone and compact
-    /// iPad multitasking keep the shorter banner.
+    /// iPad and the iPhone Duo's inner screen get the near-full-screen hero;
+    /// iPhone (landscape included) and compact iPad multitasking keep the
+    /// shorter banner.
     private var heroLayout: HomeCinematicHeroLayout {
-        UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular
-            ? .iPad
-            : .ios
+        isRegularCanvas(horizontalSizeClass, verticalSizeClass) ? .iPad : .ios
     }
 
     private var showsCinematicHero: Bool {

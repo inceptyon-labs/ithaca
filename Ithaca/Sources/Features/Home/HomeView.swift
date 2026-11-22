@@ -10,6 +10,8 @@ struct HomeView: View {
     @Environment(SeerrRequestTracker.self) private var requestTracker
     @Environment(TasteRecommender.self) private var tasteRecommender
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Binding var path: NavigationPath
     let isSelected: Bool
     let liveTVViewModel: LiveTVViewModel
@@ -161,7 +163,7 @@ struct HomeView: View {
 
     private var recentlyAddedInlineItemLimit: Int {
         #if os(iOS)
-        UIDevice.current.userInterfaceIdiom == .pad ? 22 : 15
+        isRegularCanvas(horizontalSizeClass, verticalSizeClass) ? 22 : 15
         #else
         15
         #endif

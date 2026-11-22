@@ -38,6 +38,8 @@ When changing routing, sign-in, the player HUD or Home loading, keep these hooks
 
 ## Traps
 
+- iPhone Duo captures need the simulator unfolded, and only Device Hub's Controls menu can do that (`simctl` can't; Device Hub doesn't expose its menus to AppleScript either). Capture the inner screen with `DISPLAY_ID=primary-1`; it comes out 2853 × 2007 in landscape. The Home hero follows the demo account's Continue Watching, so playing anything with it reorders the hero; Sintel was index 1 for the 2026-11-21 Duo set. Folding and unfolding during playback is the other thing to check on the Duo (both engines kept playing on 2026-11-21).
+
 - With Seerr's image caching off, Seerr artwork comes from TMDB's image server instead of the demo Seerr; either way the art is the same. Failed images stay in the app's image cache until it is reinstalled.
 - Describe It on iPhone and iPad shows a To Request row from Seerr below the picks, with real studio posters; capture it without `ITHACA_DEMO_SEERR`.
 - Downloads exists as a tab only once something is downloaded: seed downloads in one launch, capture the tab in the next.

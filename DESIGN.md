@@ -168,8 +168,9 @@ One central axis per slide. Top to bottom: tagline, device, resume line, title, 
 | iPhone 6.3" | 1206 × 2622 | scaled from 6.9" | | | | |
 | iPad 13" | 2064 × 2752 | 1240 | 1880 | 1960 | 2660 | 1100 to 1700 |
 | Apple TV | 3840 × 2160 | 2360 | 1600 | 1700 | 2090 | 900 to 1500 |
+| iPhone Duo | 2853 × 2007 | 1560 | 1330 | 1430 | 1920 | 780 to 1300 |
 
-The device's bottom edge sits on the shelf, and its top is derived from the capture's aspect ratio, so every slide in a class stands on the same baseline. The billing block starts .55 × its base size below the title and must end .6 × its base size above the foot line. The tagline sits 52 / 56 / 44px from the top.
+The device's bottom edge sits on the shelf, and its top is derived from the capture's aspect ratio, so every slide in a class stands on the same baseline. The billing block starts .55 × its base size below the title and must end .6 × its base size above the foot line. The tagline sits 52 / 56 / 44 / 44px from the top. The two landscape classes, Apple TV and iPhone Duo (the inner screen, unfolded), set the title on one line; Apple TV keeps two billing lines, the Duo three.
 
 The header is 5244 × 2950. Its art is a 3840 × 1714 Tears of Steel frame letterboxed across the full width at its own aspect ratio. Title and one billing line sit centred in the safe area (1402 × 962 at x 1921, y 660), the only region that survives every crop.
 

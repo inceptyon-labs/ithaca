@@ -19,6 +19,8 @@ struct SearchView: View {
 struct SearchRootContent: View {
     @Environment(PlexService.self) private var plexService
     @Environment(SeerrService.self) private var seerrService
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var viewModel: SearchViewModel?
     @State private var isSearchPresented = false
 
@@ -78,7 +80,7 @@ struct SearchRootContent: View {
         carouselResults(vm)
             .searchable(text: $vm.query, prompt: searchPrompt)
         #else
-        if UIDevice.current.userInterfaceIdiom == .pad {
+        if isRegularCanvas(horizontalSizeClass, verticalSizeClass) {
             carouselResults(vm)
                 .searchable(
                     text: $vm.query,

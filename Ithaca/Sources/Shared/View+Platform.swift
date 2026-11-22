@@ -6,6 +6,13 @@ import UIKit
 import SafariServices
 #endif
 
+/// Room in both directions: iPad full screen or in a wide split, and the iPhone Duo's inner screen, which is an
+/// iPhone that reports regular width and height. Use it instead of `userInterfaceIdiom == .pad` for layout. An iPhone
+/// in landscape is compact in height and stays out, as does the Duo folded.
+func isRegularCanvas(_ horizontal: UserInterfaceSizeClass?, _ vertical: UserInterfaceSizeClass?) -> Bool {
+    horizontal == .regular && vertical == .regular
+}
+
 extension View {
     @ViewBuilder
     func ithacaNavigationTitle(_ title: String) -> some View {
