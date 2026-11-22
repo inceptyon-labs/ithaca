@@ -64,3 +64,9 @@ AGENTS.md
 CLAUDE.md
 # Tenet health-check output
 .healthcheck/
+
+# Archify diagram output (local, regenerated on demand)
+.archify/
+
+# AI assistant config (local-only)
+.impeccable/

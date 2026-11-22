@@ -19,6 +19,12 @@
 >
 > The diagnostic tooling (libvlc log bridge, Playback Info rows, capture
 > procedure) survives the migration and remains the way to debug audio.
+>
+> **2026-11-21:** the App Store build ships Ithaca's own VLCKit 3.7.4
+> (`3.7.4-ithaca2`, built by `ci_scripts/build_vlckit.sh` with a new patch
+> series, `ci_scripts/vlc-patches/0100`–`0107`) with TrueHD/MLP decoding back
+> on; stock 3.7.3 stays the default for source builds. See `docs/playback.md`
+> → "Dolby TrueHD decoding".
 
 Read this BEFORE touching VLCKit audio, playback recovery, or anything gated
 on "steady playback". It documents what was actually broken, what was chased

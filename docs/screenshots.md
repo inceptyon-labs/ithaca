@@ -1,6 +1,6 @@
 # App Store Screenshots
 
-The App Store slides are built in `docs/app-store/`: `capture.sh` takes the app's screens in the simulators, and `compose.py` turns each into a one-sheet slide (design rules in `.impeccable/surfaces/docs-app-store-compose-py.md`). The release checklist is `docs/app-store-release.md`.
+The App Store slides are built in `docs/app-store/`: `capture.sh` takes the app's screens in the simulators, and `compose.py` turns each into a one-sheet slide (design rules in `DESIGN.md`). The release checklist is `docs/app-store-release.md`.
 
 ## Content
 
@@ -18,7 +18,7 @@ The demo account is also a Seerr user with request permission only (no auto-appr
 | `-IthacaScreenshotToken <token>` | Signs in as that Plex account (the demo account). Without it, a fake token for a mock plex.tv |
 | `-IthacaScreenshotPlexTV <url>` | Replaces `https://plex.tv` (a mock server; none is in this repo) |
 | `-IthacaScreenshotScreen <name>` | `home`, `movies`, `shows`, `library`, `detail`, `search`, `player`, `downloads`, `settings`, `serverPriority`, `pro`, `pickSomething`, `seerrMedia` |
-| `-IthacaScreenshotDescribe <text>` | `pickSomething`: fills Describe It with that text and sends it once (needs Athena) |
+| `-IthacaScreenshotDescribe <text>` | `pickSomething`: fills Describe It with that text and sends it once |
 | `-IthacaScreenshotSeerrMedia movie:<tmdb id>` | `seerrMedia`: opens that Seerr title (`tv:<id>` for a show) |
 | `-IthacaScreenshotItem <ratingKey>` / `-IthacaScreenshotItemType <type>` | Item for `detail` and `player`; the type also picks the `library` tab |
 | `-IthacaScreenshotPlayOffset <seconds>` | Exact player start position |

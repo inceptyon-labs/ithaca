@@ -2,7 +2,7 @@
 
 Checklist for the first App Store release of "Ithaca for Plex" (`com.inceptyon.ithaca`): one universal-purchase record with an iOS app (iPhone and iPad) and a tvOS app. Steps marked **Claude** are done from the repo or the App Store Connect API key; **You** steps need the web UI, a device, or an account.
 
-Already in place: the Inceptyon Labs developer account, an Apple Distribution certificate (from Argo), the App Store Connect API key (Argo's `.asc.local`), bundle IDs `com.inceptyon.ithaca` and `com.inceptyon.ithaca.topshelf` (Xcode-managed), `PrivacyInfo.xcprivacy`, `ITSAppUsesNonExemptEncryption` false in both Info.plists, and pages at `inceptyon.io/ithaca/privacy` and `inceptyon.io/ithaca/support` (the support page was the site's catch-all home page until it was added on 2026-11-21: check a page's title, not its status). No app record exists yet.
+Already in place: the Inceptyon Labs developer account, an Apple Distribution certificate (from Argo), the App Store Connect API key (Argo's `.asc.local`), bundle IDs `com.inceptyon.ithaca` and `com.inceptyon.ithaca.topshelf` (Xcode-managed), `PrivacyInfo.xcprivacy`, `ITSAppUsesNonExemptEncryption` false in both Info.plists, and pages at `inceptyon.io/ithaca/privacy` and `inceptyon.io/ithaca/support` (the support page was the site's catch-all home page until it was added on 2026-11-21: check a page's title, not its status). The app record is App ID 6837716351 (section 6).
 
 ## 0. Decisions
 
@@ -56,7 +56,7 @@ Sizes (Apple's screenshot specifications page, read 2026-11-20). Up to 10 per si
 - iPhone Duo (2853 × 2007 inner, landscape): optional now, required from April 2027 for apps built with the iOS 27.1 SDK or later. Uploaded as `APP_IPHONE_DUO`, which also earns the "made for iPhone Duo" badge.
 - Product page header: 3840 × 1646 (21:9), art safe area 1646 × 661 at x 1097, y 493; or the universal asset, 5244 × 2950, safe area 1402 × 962 at x 1921, y 660 (what Argo used).
 
-- [x] **Claude:** direction options through Impeccable on its decision page (two hands). **You** picked **The One-Sheet**: each slide is a movie poster, the device as key art, the claim as the title, a billing block crediting the features (`.impeccable/surfaces/docs-app-store-compose-py.md`).
+- [x] **Claude:** direction options through Impeccable on its decision page (two hands). **You** picked **The One-Sheet**: each slide is a movie poster, the device as key art, the claim as the title, a billing block crediting the features (`DESIGN.md`).
 - [x] **Claude:** `docs/app-store/capture.sh` (simulators signed in to the review account through DEBUG screenshot mode, `docs/screenshots.md`) and `compose.py` (slides, header). `place.py` measures where the app draws each key art so the poster art lines up with the screen.
 - [x] **Claude:** six slides each for iPhone 6.9-inch and 6.3-inch, iPad 13-inch and Apple TV, plus the header (`docs/app-store/screenshots/`). iPhone and iPad: Home, 4K remux (detail), Seerr request, Describe It, Downloads, Up Next. Apple TV swaps Downloads for the library. Slide 6 is the Caminandes show page. Impeccable's finish review ran twice: the second verdict scored 6 of 8 fixes resolved, with 2 partial and 2 regressions; all were addressed afterwards except a clipped "Pick Again" pill at the bottom of Apple TV slide 4, and that last batch has not been re-scored. The design record is `DESIGN.md` (App Store art only; `STYLE.md` still governs the app).
 - [x] **Claude:** six iPhone Duo slides (`screenshots/duo/`, 2026-11-21), the same shots as iPhone, from the inner screen of the "Ithaca Duo" simulator. Not yet re-scored by Impeccable's finish review.
@@ -87,7 +87,7 @@ Sizes (Apple's screenshot specifications page, read 2026-11-20). Up to 10 per si
 
 - 2.3.1, a feature in the screenshots the reviewer can't reach: slide 3 shows Seerr requests. Handled 2026-11-21: the review notes give the public Seerr (`seer.jplex.us`, through Cloudflare), where the review account signs in with Plex as a request-only user.
 - 2.1, reviewer can't sign in or the library is empty: the demo account and a library that answers from outside the house.
-- 2.1 / 3.1.1, Pro features the reviewer can't reach: see the open decision in section 0.
+- 2.1 / 3.1.1, Pro features the reviewer can't reach: handled by the section 0 decision. Describe It runs on the device with nothing to set up, so App Review can try it.
 - 4.1 / 4.3, resemblance to Dusk for Plex, which Ithaca descends from (MIT, credited in `ThirdPartyNotices.txt`): own name, icon, screenshots and copy.
 - 5.1.2(i), Describe It sending text to a third-party AI: the consent prompt and the privacy policy.
 - 5.2, Plex trademark: "for Plex", no logo, unofficial stated. Slide 1 and the header said "The Plex app you wanted" until 2026-11-21, which read as Plex's own app; they now say "The player your Plex deserves."

@@ -21,14 +21,14 @@ Four claims, all confirmed for the store listing:
 - **Plays everything direct.** AVPlayer for standard files, VLCKit for the rest (MKV, DTS, PGS); Dolby Vision 7 converted to 8.1 on the device; Atmos and HDR remuxed losslessly through Plex; Plex transcoding only as a fallback or by choice.
 - **Native Apple feel.** SwiftUI, Liquid Glass and system controls; Top Shelf on Apple TV, SharePlay, AirPlay, Siri.
 - **Just your library.** No promoted content, ads, tracking or analytics. Plex holds the watch state; nothing goes anywhere else.
-- **Smart picks.** Because You Liked from the viewer's ratings, Pick Something, Describe It (an LLM picks from the library through Athena, an optional self-hosted server), Seerr requests.
+- **Smart picks.** Because You Liked from the viewer's ratings, Pick Something, Describe It (picks from the library on the device, or through Athena, an optional self-hosted server, when the viewer agrees), Seerr requests.
 
 Plex's own app pushes its streaming service and transcodes these files; Infuse plays them but is a general file player. Ithaca is Plex-only and Plex-native (watch state, Live TV, ratings, Seerr).
 
 ## Operating Context
 
 - Plex Media Server on the user's network or reached remotely through plex.tv; the app signs in with a Plex account.
-- Optional companions: Seerr for requests, Athena (`inceptyon-labs/athena`) for Describe It. Both are self-hosted; without them those features stay hidden.
+- Optional companions: Seerr for requests, Athena (`inceptyon-labs/athena`) for Describe It. Both are self-hosted; without Seerr, requests stay hidden, and without Athena, Describe It runs on the device.
 - Living-room Apple TV with a Siri Remote is the main screen; iPhone and iPad add downloads for offline viewing.
 
 ## Capabilities and Constraints

@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ithaca system overview",
+    "output": ".archify/architecture-ithaca-overview-20261121-230954/ithaca-overview.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "git@github.com:inceptyon-labs/ithaca.git",
+      "provider": "github",
+      "link_mode": "local-only",
+      "revision": "0b75667f7a1d7d1b1bce5b8f54cdcfca84f807b1"
+    }
+  },
+  "components": [
+    { "id": "viewer", "type": "external", "label": "Viewer", "sublabel": "Siri Remote / touch", "pos": [40, 320], "size": [120, 64] },
+    { "id": "plextv", "type": "external", "label": "plex.tv", "sublabel": "PIN sign-in, resources", "pos": [540, 40], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/PlexService/PlexService+Auth.swift", "line": 47, "end_line": 53, "label": "PIN flow" },
+        { "path": "Ithaca/Sources/PlexService/PlexService+Servers.swift", "line": 30, "end_line": 30, "label": "server discovery" }
+      ] },
+    { "id": "plexsvc", "type": "backend", "label": "PlexService", "sublabel": "server pool, API calls", "tag": "token in Keychain", "pos": [540, 170], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/PlexService/PlexService.swift", "line": 11, "end_line": 11 },
+        { "path": "Ithaca/Sources/PlexService/PlexService.swift", "line": 211, "end_line": 211, "label": "Keychain token" },
+        { "path": "Ithaca/Sources/PlexService/ServerPool.swift", "line": 36, "end_line": 36 }
+      ] },
+    { "id": "views", "type": "frontend", "label": "SwiftUI screens", "sublabel": "@Observable view models", "pos": [200, 320], "size": [275, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/App/IthacaApp.swift", "line": 239, "end_line": 303, "label": "services injected" },
+        { "path": "Ithaca/Sources/Features/Home/HomeViewModel.swift", "line": 269, "end_line": 289 }
+      ] },
+    { "id": "coordinator", "type": "backend", "label": "PlaybackCoordinator", "sublabel": "session, fallback", "pos": [540, 320], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/Features/Player/PlaybackCoordinator.swift", "line": 397, "end_line": 397, "label": "play" },
+        { "path": "Ithaca/Sources/Features/Player/PlaybackCoordinator+Session.swift", "line": 228, "end_line": 231, "label": "local download" },
+        { "path": "Ithaca/Sources/Features/Player/PlaybackCoordinator+Session.swift", "line": 322, "end_line": 359, "label": "resolve + direct URL" }
+      ] },
+    { "id": "engines", "type": "backend", "label": "Playback engines", "sublabel": "AVPlayer / VLCKit", "pos": [800, 320], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/Playback/PlaybackEngineFactory.swift", "line": 65, "end_line": 82 },
+        { "path": "Ithaca/Sources/Playback/AVPlayerEngine.swift", "line": 21, "end_line": 21 },
+        { "path": "Ithaca/Sources/Playback/VLCKitEngine.swift", "line": 252, "end_line": 252 }
+      ] },
+    { "id": "pms", "type": "external", "label": "Plex Media Server", "sublabel": "user's own, LAN or remote", "pos": [1050, 320], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/PlexService/PlexService+Networking.swift", "line": 237, "end_line": 240, "label": "server requests" },
+        { "path": "Ithaca/Sources/PlexService/PlexService+Playback.swift", "line": 236, "end_line": 240, "label": "direct-play URL" }
+      ] },
+    { "id": "seerrsvc", "type": "backend", "label": "SeerrService", "sublabel": "optional requests", "pos": [200, 470], "size": [130, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/SeerrService/SeerrService.swift", "line": 5, "end_line": 5 },
+        { "path": "Ithaca/Sources/SeerrService/SeerrService.swift", "line": 139, "end_line": 145, "label": "Plex-token sign-in" }
+      ] },
+    { "id": "downloads", "type": "backend", "label": "DownloadManager", "sublabel": "iOS offline files", "pos": [345, 470], "size": [130, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/Downloads/DownloadManager.swift", "line": 428, "end_line": 432, "label": "queueDownload" },
+        { "path": "Ithaca/Sources/Downloads/DownloadTransfer.swift", "line": 61, "end_line": 67, "label": "background URLSession" },
+        { "path": "Ithaca/Sources/Downloads/DownloadFileStore.swift", "line": 74, "end_line": 74, "label": "snapshot write" }
+      ] },
+    { "id": "resolver", "type": "backend", "label": "StreamResolver", "sublabel": "engine + remux rules", "pos": [540, 470], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/Playback/StreamResolver.swift", "line": 116, "end_line": 132 }
+      ] },
+    { "id": "dvproxy", "type": "backend", "label": "DV7 HLS proxy", "sublabel": "127.0.0.1, IthacaDovi", "pos": [800, 470], "size": [150, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/Playback/AVPlayerEngine.swift", "line": 671, "end_line": 689, "label": "started by AVPlayer" },
+        { "path": "Ithaca/Sources/Playback/DolbyVision7/DolbyVision7HLSProxy.swift", "line": 29, "end_line": 47, "label": "upstream fetcher" },
+        { "path": "Ithaca/Sources/Playback/DolbyVision7/DoviBridge.swift", "line": 21, "end_line": 21, "label": "Rust RPU convert" }
+      ] },
+    { "id": "seerr", "type": "external", "label": "Seerr", "sublabel": "self-hosted, optional", "pos": [200, 600], "size": [130, 64],
+      "sources": [
+        { "path": "Ithaca/Sources/SeerrService/SeerrService.swift", "line": 836, "end_line": 844, "label": "HTTPS request" }
+      ] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "On device: Ithaca app", "wraps": ["plexsvc", "views", "coordinator", "engines", "seerrsvc", "downloads", "resolver", "dvproxy"] }
+  ],
+  "connections": [
+    { "id": "viewer-to-views", "from": "viewer", "to": "views", "variant": "emphasis" },
+    { "id": "views-to-coordinator", "from": "views", "to": "coordinator", "label": "Play", "variant": "emphasis" },
+    { "id": "coordinator-to-engines", "from": "coordinator", "to": "engines", "label": "URL + engine", "variant": "emphasis" },
+    { "id": "engines-to-pms", "from": "engines", "to": "pms", "label": "direct play", "variant": "emphasis" },
+    { "id": "views-to-plexsvc", "from": "views", "to": "plexsvc", "label": "library, watch state" },
+    { "id": "coordinator-to-plexsvc", "from": "coordinator", "to": "plexsvc", "label": "stream URL" },
+    { "id": "plexsvc-to-plextv", "from": "plexsvc", "to": "plextv", "label": "sign-in, servers", "variant": "security" },
+    { "id": "plexsvc-to-pms", "from": "plexsvc", "to": "pms", "label": "HTTPS + token", "variant": "security" },
+    { "id": "coordinator-to-resolver", "from": "coordinator", "to": "resolver", "label": "evaluate media" },
+    { "id": "engines-to-dvproxy", "from": "engines", "to": "dvproxy", "label": "DV7 remux" },
+    { "id": "dvproxy-to-pms", "from": "dvproxy", "to": "pms", "label": "HLS fragments" },
+    { "id": "views-to-seerrsvc", "from": "views", "to": "seerrsvc", "label": "request" },
+    { "id": "seerrsvc-to-seerr", "from": "seerrsvc", "to": "seerr", "label": "Plex-token login", "variant": "security" },
+    { "id": "views-to-downloads", "from": "views", "to": "downloads", "label": "download" },
+    { "id": "downloads-to-pms", "from": "downloads", "to": "pms", "label": "background download", "variant": "dashed" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Playback path", "items": [
+      "StreamResolver picks AVPlayer for MP4/MOV with standard codecs and VLCKit for the rest (MKV, DTS, PGS)",
+      "Atmos and HDR files can go through a lossless Plex HLS remux; a failed direct play falls back to a Plex direct stream",
+      "A finished download plays from the device instead of the server"
+    ] },
+    { "dot": "violet", "title": "Dolby Vision 7", "items": [
+      "AVPlayerEngine starts a loopback proxy that pulls Plex's HLS remux",
+      "Each fragment's RPU is rewritten to profile 8.1 by the IthacaDovi Rust library",
+      "A failed conversion retries the same remux as its HDR10 base layer"
+    ] },
+    { "dot": "rose", "title": "Credentials", "items": [
+      "The Plex account token lives in the Keychain; preferences in UserDefaults",
+      "Seerr signs in with the Plex token, and plain HTTP is refused outside the local network"
+    ] },
+    { "dot": "amber", "title": "Not drawn", "items": [
+      "Describe It runs on the device; Athena (a self-hosted server that asks Claude) only after the viewer agrees",
+      "Top Shelf extension reads a snapshot from the App Group group.com.inceptyon.ithaca"
+    ] }
+  ]
+}
