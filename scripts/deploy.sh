@@ -174,9 +174,6 @@ revert_on_failure() {
     local status=$?
     if [ $status -ne 0 ] && [ $SPENT -eq 0 ]; then
         git checkout -- "$PROJECT_YML" Ithaca.xcodeproj CHANGELOG.md 2>/dev/null || true
-        for f in "$NOTES" "$WHATS_NEW"; do
-            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then git checkout -- "$f" 2>/dev/null || true; else rm -f "$f"; fi
-        done
         echo -e "${YELLOW}Reverted the build number bump${NC}"
     fi
 }
@@ -245,9 +242,10 @@ done
 echo ""
 
 # ─── Commit and tag ──────────────────────────────────────────────────
-# What shipped: the build number and the notes. Only these paths, so other work stays unstaged.
+# What shipped: the build number and the changelog. Only these paths, so other work stays unstaged.
+# The notes in docs/app-store/ are gitignored and stay local.
 echo -e "${BLUE}Committing the release files...${NC}"
-git add "$PROJECT_YML" Ithaca.xcodeproj/project.pbxproj "$NOTES" "$WHATS_NEW" CHANGELOG.md
+git add "$PROJECT_YML" Ithaca.xcodeproj/project.pbxproj CHANGELOG.md
 if git diff --cached --quiet; then
     echo -e "${YELLOW}Nothing new to commit${NC}"
 elif [ "$LANE" = "release" ]; then

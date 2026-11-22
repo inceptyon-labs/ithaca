@@ -55,7 +55,7 @@ async function api(method, route, data) {
 }
 
 const findApp = async () => (await api("GET", `v1/apps?filter[bundleId]=${BUNDLE_ID}`)).data[0];
-const missing = `no App Store Connect app for ${BUNDLE_ID}. Create it first: Apps > + > New App, platforms iOS and tvOS, bundle ID ${BUNDLE_ID} (docs/app-store-release.md, section 6).`;
+const missing = `no App Store Connect app for ${BUNDLE_ID}. Create it first: Apps > + > New App, platforms iOS and tvOS, bundle ID ${BUNDLE_ID}.`;
 const notes = (file) => fs.readFileSync(file, "utf8").trim().slice(0, 4000);
 
 // Processing usually takes 5 to 30 minutes. The iOS and tvOS builds share a build number, so filter by platform too.

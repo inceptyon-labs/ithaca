@@ -6,7 +6,7 @@ Ithaca's code is free software under the [AGPL-3.0](LICENSE). Its name and artwo
 
 - The names "Ithaca", "Ithaca for Plex" and "Ithaca Pro".
 - The Ithaca icon and logo, in every size and form: `Ithaca/Resources/AppIcon.icon`, `Ithaca/Resources/Assets.xcassets/AppIconTV.brandassets` and `Ithaca/Resources/Assets.xcassets/LaunchLogo.imageset`.
-- The App Store slides and product page header in `docs/app-store/screenshots/` as designs. The film stills in them, and the key art in `docs/app-store/keyart/`, keep their own licenses (`docs/app-store/keyart/SOURCES.txt`; Blender Studio's films are CC BY), and the fonts in `docs/app-store/fonts/` are under the SIL Open Font License.
+- The App Store slides and product page header, as designs. The film stills in them keep their own licenses (Blender Studio's films are CC BY).
 
 All rights reserved for the above.
 

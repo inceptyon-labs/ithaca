@@ -1,8 +1,7 @@
 #if DEBUG
 import SwiftUI
 
-/// DEBUG-only demo mode for the App Store screenshots (see
-/// `docs/screenshots.md`).
+/// DEBUG-only demo mode for the App Store screenshots.
 ///
 /// Everything is driven by launch arguments, which land in UserDefaults'
 /// argument domain (`-IthacaScreenshotMode YES`, `-IthacaScreenshotScreen detail`…)

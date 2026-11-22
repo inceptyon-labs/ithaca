@@ -52,8 +52,13 @@ Carthage/Build/
 
 AGENTS.local.md
 
-# App Store captures (rebuilt by docs/app-store/capture.sh)
-docs/app-store/raw/
+# Release notes, App Store art pipeline, and the maintainer's release and audit notes (local only)
+docs/app-store/
+docs/app-store-ready/
+docs/app-store-release.md
+docs/scans/
+docs/screenshots.md
+DESIGN.md
 
 # App Store Connect API key flags (scripts/deploy.sh, scripts/asc.mjs)
 .asc.local

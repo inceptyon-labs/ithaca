@@ -208,7 +208,6 @@ For docs-only changes, a build is normally unnecessary. Verify the file and `git
     The first version (1.0) only gets its build attached: submit it from the version page
     with the in-app purchases (`asc.mjs release` exits 3 for it).
   - `./scripts/deploy.sh --preflight` runs only the checks below.
-  Checklist for the first release: `docs/app-store-release.md`.
 - Prerequisites: `xcodegen`, `git-cliff`, Node, and `.asc.local` (git-ignored; the App Store
   Connect API key flags, copied from Argo's) with its key in `~/.private_keys`. The app
   record `com.inceptyon.ithaca` must exist in App Store Connect (platforms iOS and tvOS).
@@ -224,10 +223,10 @@ For docs-only changes, a build is normally unnecessary. Verify the file and `git
   with `-y`), or patch, minor or major on `MARKETING_VERSION` too. The run writes both into
   `project.yml`, runs `xcodegen generate` (then restores the checked-in `xcshareddata`
   schemes), and `scripts/whats_new.sh` writes `docs/app-store/what-to-test.txt` from the
-  commits since the previous `build/<n>` tag, plus `docs/app-store/whats-new.txt` and this
+  commits since the previous `build/<n>` tag, plus `docs/app-store/whats-new.txt` (both gitignored) and this
   version's `CHANGELOG.md` section from the last `v<version>` tag,
   archives both schemes with automatic signing (`-allowProvisioningUpdates` and the API key
-  flags), and uploads with `scripts/ExportOptions.plist`. It then commits the bump, notes
+  flags), and uploads with `scripts/ExportOptions.plist`. It then commits the bump
   and changelog, tags `build/<n>`, pushes, and `scripts/asc.mjs` sets "What to Test" on both
   builds and keeps the internal group "Inceptyon" on every build; `prod` then runs
   `asc.mjs release`.
