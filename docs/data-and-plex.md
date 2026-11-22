@@ -203,7 +203,20 @@ Plex Home invariants:
 - Automatic sign-in remembers the switched session token in Keychain, not the
   Home PIN. With automatic sign-in off, a cold Home switch requires internet.
 - `activeProfileID` is the local persistence boundary for downloads, cached
-  offline metadata, and delayed watch-state actions.
+  offline metadata, and delayed watch-state actions. It is nil while a non-admin
+  member restored from the last launch runs on the owner's token (their own
+  token wasn't remembered): until the Home check switches to them, per-profile
+  state written under the member would be the owner's.
+- A launch that finds the Keychain locked (`KeychainHelper.Read.locked`, before
+  the first unlock after a restart) sets `credentialsLocked` instead of reading
+  as signed out, and reads the sign-in again on
+  `protectedDataDidBecomeAvailable`. Nothing deletes signed-in state while it is
+  set.
+- `ServerPool.homeNetworkServerIDs` holds the servers a probe reached on one of
+  their LAN addresses since the last network change (cleared with the plain-HTTP
+  sessions in `suspendPlainHTTPSessions`; a restored session doesn't count).
+  `isOnHomeNetwork` gates plain HTTP to Athena and Seerr, whose local addresses
+  belong to whoever answers on the network the device is on.
 - Pick Something reads *other* members' watch state without switching
   (`PlexService+HomeViewers.swift`). `homeViewerAccess(for:pin:)` asks the switch
   endpoint for the member's account token (`homeUserAccountToken`, the same request
@@ -435,7 +448,14 @@ same array: `sidebarSettings.pinnedSources`. Array position is the order.
   intersects them. A server that answered with *nothing* is in neither: it has no
   pins to write, and an empty answer is also what a still-scanning or half-started
   server returns, so it must not be able to delete what the account has pinned
-  for it.
+  for it. The write also leaves alone any server with no section in the list
+  being written: one that connected after the Library Order screen built its
+  list would otherwise lose every pin. The screen rebuilds its list from the
+  cache when the cached servers or the profile change
+  (`LibraryOrderSettingsViewModel.refreshIfServersChanged`).
+- A write carries the profile it was edited under and is dropped if a Plex Home
+  switch happened before it ran. An `experience` value or `sidebarSettings`
+  that isn't a JSON object refuses the write instead of being replaced.
 - `LibraryOrderStore` caches per `"<connected serverIDs in priority order>|<profileID>"`
   — priority order, not sorted, because reordering Server Priority changes the
   unpinned tail and must invalidate the cache — and commits each

@@ -51,15 +51,25 @@ struct DownloadFileStore: Sendable {
         try? mutableRoot.setResourceValues(values)
     }
 
-    func loadSnapshot() -> DownloadStoreSnapshot {
-        decodeStateFile(DownloadStoreSnapshot.self, at: stateFileURL) ?? DownloadStoreSnapshot()
+    func loadSnapshot() throws -> DownloadStoreSnapshot {
+        try decodeStateFile(DownloadStoreSnapshot.self, at: stateFileURL) ?? DownloadStoreSnapshot()
     }
 
     /// Nil when the file is missing or cannot be decoded. An undecodable file
     /// is moved to `<name>.unreadable` (replacing an older one) so the next
-    /// save does not overwrite it.
-    func decodeStateFile<T: Decodable>(_ type: T.Type, at url: URL) -> T? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
+    /// save does not overwrite it. Throws when the file exists but cannot be
+    /// read, for example while data protection locks it before the first
+    /// unlock: the caller must not start empty or save over it.
+    func decodeStateFile<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
+            return nil
+        } catch {
+            fileStoreLogger.error("Could not read \(url.lastPathComponent, privacy: .public), leaving it in place: \(String(describing: error), privacy: .public)")
+            throw error
+        }
         do {
             return try JSONDecoder().decode(type, from: data)
         } catch {

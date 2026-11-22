@@ -121,19 +121,49 @@ final class PickSomethingViewModel {
         store.hasPro
     }
 
-    /// Athena when one is set and the viewer agreed, otherwise the device.
+    /// The Athena set in Settings, found or shared, when it can be used from
+    /// here: an http:// one only on its home network.
+    private var athenaClient: AthenaClient? {
+        guard let client = AthenaClient(address: preferences.athenaAddress),
+              !client.isPlainHTTP || plexService.pool.isOnHomeNetwork else { return nil }
+        return client
+    }
+
+    /// Athena when one is usable and the viewer agreed, otherwise the device.
     private var describeEngine: DescribeItEngine {
-        guard preferences.athenaConsent == .allowed,
-              let client = AthenaClient(address: preferences.athenaAddress) else { return .onDevice }
-        return .athena(client, plexToken: plexService.activeAccountToken)
+        guard preferences.athenaConsent == .allowed, let client = athenaClient else { return .onDevice }
+        return .athena(client, credentials: athenaCredentials)
+    }
+
+    /// The active profile's server tokens, of which Athena gets the one for its
+    /// own server (`AthenaCredentials`).
+    private var athenaCredentials: AthenaCredentials {
+        let pool = plexService.pool
+        var credentials = AthenaCredentials()
+        for serverID in pool.knownServerIDs {
+            guard let token = pool.connection(for: serverID)?.token ?? ServerPool.storedToken(serverID: serverID) else {
+                continue
+            }
+            credentials.serverTokens[serverID] = token
+            guard let server = pool.server(for: serverID), server.owned else { continue }
+            let hosts = server.connections.flatMap { connection in
+                [connection.address.lowercased(), URL(string: connection.uri)?.host(percentEncoded: false)?.lowercased()]
+                    .compactMap { $0?.nilIfEmpty }
+            }
+            credentials.ownedServers[serverID] = AthenaCredentials.OwnedServer(
+                hosts: Set(hosts),
+                isOnItsNetwork: pool.homeNetworkServerIDs.contains(serverID)
+            )
+        }
+        return credentials
     }
 
     /// The Athena a request would go to, while the viewer hasn't said whether
     /// it may.
     var athenaAwaitingConsent: String? {
-        guard requestAwaitingConsent != nil,
-              let url = AthenaClient(address: preferences.athenaAddress)?.baseURL else { return nil }
-        return url.host(percentEncoded: false)
+        guard requestAwaitingConsent != nil, let url = athenaClient?.baseURL,
+              let host = url.host(percentEncoded: false) else { return nil }
+        return url.port.map { "\(host):\($0)" } ?? host
     }
 
     var requestables: [PickSomethingRequestable] {
@@ -320,8 +350,7 @@ final class PickSomethingViewModel {
     func describe(_ text: String) {
         let request = text.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
             .map { String($0.prefix(Self.maximumRequestLength)) }
-        if let request, preferences.athenaConsent == .undecided,
-           AthenaClient(address: preferences.athenaAddress) != nil {
+        if let request, preferences.athenaConsent == .undecided, athenaClient != nil {
             requestAwaitingConsent = request
             return
         }

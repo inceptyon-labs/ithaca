@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import Observation
+import UIKit
 
 private enum DownloadManagerError: LocalizedError {
     case insufficientStorage(requiredBytes: Int64, availableBytes: Int64, reserveBytes: Int64)
@@ -92,6 +93,11 @@ final class DownloadManager {
     @ObservationIgnored private var isNetworkPaused = false
     @ObservationIgnored private(set) var isProfileSwitching = false
     @ObservationIgnored private var isReconcilingTransfers = true
+    /// False while `downloads.json` exists but cannot be read (data protection
+    /// before the first unlock). Until it loads nothing is saved, no transfer
+    /// is reconciled and the queue does not run.
+    @ObservationIgnored private var isStateLoaded = false
+    @ObservationIgnored private var stateLoadObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var hasDeferredProfileActivation = false
     @ObservationIgnored private var pendingProfileSuspensionTaskIDs: Set<Int> = []
     /// The Wi-Fi Only value running transfers were started with.
@@ -124,10 +130,7 @@ final class DownloadManager {
         self.metadataCache = PlexMetadataCache(fileStore: fileStore)
         appliedDownloadsWifiOnly = preferences.downloadsWifiOnly
         try? fileStore.prepareRootDirectory()
-        storedRecords = fileStore.loadSnapshot().records
-        rekeyLegacyServerIdentifiers()
-        reconcileCompletedFiles()
-        _ = transferController
+        loadStoredState()
         startNetworkMonitoring()
         observeServerConnectivity()
         connectedServerIDs = Set(plexService.pool.connections.map(\.serverID))
@@ -137,8 +140,43 @@ final class DownloadManager {
         plexService.willSignOut = { [weak self] in
             self?.prepareForProfileSwitch()
         }
+        if !isStateLoaded {
+            retryLoadingStoredStateWhenAvailable()
+        }
+    }
+
+    /// Reads `downloads.json`, then checks completed files and running
+    /// transfers against it. Records stay empty when the file exists but
+    /// cannot be read; the retry below runs this again.
+    private func loadStoredState() {
+        guard !isStateLoaded, let snapshot = try? fileStore.loadSnapshot() else { return }
+        isStateLoaded = true
+        for observer in stateLoadObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        stateLoadObservers = []
+        storedRecords = snapshot.records
+        rekeyLegacyServerIdentifiers()
+        reconcileCompletedFiles()
+        _ = transferController
         Task { [weak self] in
             await self?.reconcileExistingTransfers()
+        }
+    }
+
+    /// Becoming active retries too, in case the unlock happened while the app
+    /// was suspended.
+    private func retryLoadingStoredStateWhenAvailable() {
+        for name in [UIApplication.protectedDataDidBecomeAvailableNotification, UIApplication.didBecomeActiveNotification] {
+            stateLoadObservers.append(NotificationCenter.default.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.loadStoredState()
+                }
+            })
         }
     }
 
@@ -1225,7 +1263,8 @@ final class DownloadManager {
             queueTask = nil
         }
 
-        guard plexService.isSessionReady,
+        guard isStateLoaded,
+              plexService.isSessionReady,
               plexService.activeProfileID?.nilIfEmpty != nil,
               !isProfileSwitching,
               !isQueuePaused,
@@ -2441,6 +2480,8 @@ final class DownloadManager {
     }
 
     private func persist() {
+        // Never replace a state file that could not be read.
+        guard isStateLoaded else { return }
         try? fileStore.saveSnapshot(DownloadStoreSnapshot(records: storedRecords))
     }
 }

@@ -319,7 +319,7 @@ struct IthacaApp: App {
                     Button("Use Athena") { athenaLinks.accept(link, preferences: userPreferences) }
                     Button("Cancel", role: .cancel) { athenaLinks.pending = nil }
                 } message: { link in
-                    Text("Describe It will send what you type, the titles in your library that fit, and your Plex sign-in to Athena at \(link.host), which passes the request to Anthropic's Claude. Only use an address from someone whose Plex server you use.")
+                    Text("Describe It will send what you type, the titles in your library that fit, and your sign-in for its Plex server, which works on that server only, to Athena at \(link.host), which passes the request to Anthropic's Claude. Only use an address from someone whose Plex server you use.")
                 }
                 .preferredColorScheme(userPreferences.appearanceMode.preferredColorScheme)
                 .task {
@@ -399,6 +399,7 @@ private extension IthacaApp {
             plexService.activeProfileID ?? "none",
             plexService.seerrBindingServerID ?? "none",
             String(plexService.isAuthenticated),
+            String(plexService.isSessionReady),
         ].joined(separator: ":")
     }
 

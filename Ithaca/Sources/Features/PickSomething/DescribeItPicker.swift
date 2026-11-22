@@ -4,7 +4,7 @@ import Foundation
 /// beside Plex and the viewer agreed to send it requests, otherwise Ithaca on
 /// the device.
 enum DescribeItEngine: Sendable {
-    case athena(AthenaClient, plexToken: String?)
+    case athena(AthenaClient, credentials: AthenaCredentials)
     case onDevice
 }
 
@@ -25,8 +25,8 @@ final class DescribeItPicker {
         feed: PickSomethingRequestFeed? = nil
     ) async throws -> AthenaAnswer {
         switch engine {
-        case .athena(let client, let plexToken):
-            return try await client.pick(request, plexToken: plexToken)
+        case .athena(let client, let credentials):
+            return try await client.pick(request, credentials: credentials)
         case .onDevice:
             let query = await query(for: request.request, kind: kind, catalog: catalog)
             try Task.checkCancellation()

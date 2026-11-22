@@ -27,7 +27,14 @@ struct LibraryOrderSettingsView: View {
                 // would overwrite the edit still waiting on its write.
                 if model.libraries.isEmpty {
                     await model.load()
+                } else {
+                    model.refreshIfServersChanged()
                 }
+            }
+            // Picks up a server that connected after the list was read. Until
+            // it is listed, writes leave that server's pins alone.
+            .onChange(of: plexService.libraryOrder.machineIdentifiers) {
+                viewModel?.refreshIfServersChanged()
             }
             .onDisappear {
                 guard let viewModel else { return }

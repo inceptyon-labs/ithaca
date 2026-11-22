@@ -4,6 +4,7 @@ import SwiftUI
 /// from what the viewer describes in Pick Something (`AthenaClient`).
 struct AthenaSettingsView: View {
     @Environment(UserPreferences.self) private var preferences
+    @Environment(PlexService.self) private var plexService
     @State private var status: AthenaStatus = .checking
     #if !os(tvOS)
     @State private var draft = ""
@@ -19,7 +20,7 @@ struct AthenaSettingsView: View {
     private static let footer = "\(about) Set it up from [\(repo)](https://\(repo)). \(finding)"
     #endif
 
-    private static let consentFooter = "On, what you type in Describe It and the titles in your library that fit go to Athena, and from there to Anthropic's Claude. Off, Describe It runs on this device."
+    private static let consentFooter = "On, what you type in Describe It, the titles in your library that fit and your sign-in for Athena's Plex server (it works on that server only) go to this Athena, which passes the request to Anthropic's Claude. Off, Describe It runs on this device."
 
     private var usesAthena: Binding<Bool> {
         Binding(
@@ -49,7 +50,7 @@ struct AthenaSettingsView: View {
         }
         .background(Color.ithacaBackground.ignoresSafeArea())
         .ithacaNavigationTitle("Athena")
-        .task(id: preferences.athenaAddress) {
+        .task(id: "\(preferences.athenaAddress)|\(plexService.pool.isOnHomeNetwork)") {
             await check()
         }
     }
@@ -59,6 +60,10 @@ struct AthenaSettingsView: View {
             status = AthenaClient.refusesAsInsecure(preferences.athenaAddress)
                 ? .failed("Plain HTTP only works on your network. Start this address with https://")
                 : .notSet
+            return
+        }
+        guard !client.isPlainHTTP || plexService.pool.isOnHomeNetwork else {
+            status = .failed("An http:// address is only used on your home network. Start it with https:// to use Athena from anywhere.")
             return
         }
         status = .checking

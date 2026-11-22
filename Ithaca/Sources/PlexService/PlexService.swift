@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import UIKit
 
 let plexAuthLogger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "Ithaca",
@@ -47,6 +48,12 @@ final class PlexService {
     /// recommendations rebuild from the new taste.
     var tasteRevision = 0
     var homeSelectionRequested = false
+    /// The Keychain was locked at launch (the device hasn't been unlocked
+    /// since it started), so the sign-in couldn't be read: the app only looks
+    /// signed out. The credentials are read again once it unlocks, and nothing
+    /// may delete signed-in state because of it meanwhile.
+    private(set) var credentialsLocked = false
+    @ObservationIgnored private var protectedDataObserver: NSObjectProtocol?
     var primaryProfileID: String?
     var hasRememberedHomeUserToken = false
 
@@ -59,6 +66,14 @@ final class PlexService {
     var hasPlexHome: Bool { homeUsers.count > 1 }
     var activeProfileID: String? {
         if needsHomeUserSelection, activeHomeUser == nil {
+            return nil
+        }
+        // A member restored from the last launch without their own token:
+        // until the Home check switches to them, requests carry the owner's
+        // token, so the session is nobody's profile yet. Otherwise per-profile
+        // state (a Seerr sign-in) could be written under the member as the
+        // owner.
+        if let activeHomeUser, !activeHomeUser.isAdmin, activeAccountToken == primaryAccountToken {
             return nil
         }
         return activeHomeUser?.stableProfileID
@@ -208,9 +223,13 @@ final class PlexService {
         }
 
         KeychainHelper.migrateAccessibilityIfNeeded()
-        if let data = KeychainHelper.load(key: Self.keychainTokenKey),
-           let token = String(data: data, encoding: .utf8) {
-            primaryAccountToken = token.nilIfEmpty
+        switch KeychainHelper.read(key: Self.keychainTokenKey) {
+        case let .found(data):
+            primaryAccountToken = String(data: data, encoding: .utf8)?.nilIfEmpty
+        case .locked:
+            credentialsLocked = true
+        case .missing:
+            break
         }
         #if DEBUG
         // Screenshot mode signs in to the mock server's demo account and never
@@ -251,6 +270,43 @@ final class PlexService {
 
         pool.configure(session: session, baseHeaders: plexRequestHeaders)
         migrateLegacySingleServerState()
+        restorePersistedSessions()
+
+        if credentialsLocked {
+            protectedDataObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.restoreCredentialsAfterUnlock() }
+            }
+        }
+    }
+
+    /// The launch read the Keychain while it was locked: read the sign-in
+    /// again now, as `init` would have. The shell's bootstrap follows
+    /// `isAuthenticated`.
+    private func restoreCredentialsAfterUnlock() {
+        if let protectedDataObserver {
+            NotificationCenter.default.removeObserver(protectedDataObserver)
+            self.protectedDataObserver = nil
+        }
+        guard credentialsLocked else { return }
+        defer { credentialsLocked = false }
+        // Signed in meanwhile: that sign-in stands.
+        guard primaryAccountToken == nil,
+              let data = KeychainHelper.load(key: Self.keychainTokenKey),
+              let token = String(data: data, encoding: .utf8)?.nilIfEmpty else { return }
+        primaryAccountToken = token
+        if automaticHomeSignIn,
+           activeHomeUser != nil,
+           let data = KeychainHelper.load(key: Self.keychainActiveHomeTokenKey),
+           let memberToken = String(data: data, encoding: .utf8)?.nilIfEmpty {
+            activeAccountToken = memberToken
+            hasRememberedHomeUserToken = true
+        } else {
+            activeAccountToken = token
+        }
         restorePersistedSessions()
     }
 

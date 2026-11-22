@@ -10,12 +10,18 @@ struct SeerrStoredSession: Codable, Sendable, Hashable {
 enum SeerrCredentialStore {
     private static let keychainKey = "SeerrSessions"
 
-    static func load() -> [SeerrStoredSession] {
-        guard let data = KeychainHelper.load(key: keychainKey),
-              let sessions = try? JSONDecoder().decode([SeerrStoredSession].self, from: data) else {
+    /// nil while the Keychain is locked (before the first unlock after a
+    /// restart), when the stored sessions can't be read and must not be saved
+    /// over.
+    static func load() -> [SeerrStoredSession]? {
+        switch KeychainHelper.read(key: keychainKey) {
+        case .locked:
+            return nil
+        case .missing:
             return []
+        case let .found(data):
+            return (try? JSONDecoder().decode([SeerrStoredSession].self, from: data)) ?? []
         }
-        return sessions
     }
 
     static func save(_ sessions: [SeerrStoredSession]) {

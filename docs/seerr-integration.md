@@ -48,7 +48,21 @@ same message. Probing never sends a Plex credential, and the confirmation still
 warns when the resolved local transport is unencrypted. A local name or address
 belongs to whoever answers on the current network, so over plain HTTP the Plex
 token is only ever posted by that confirmed manual connect: an expired HTTP
-session is dropped rather than re-signed in, and Settings offers Connect again. On tvOS the URL editor is a flat settings row with
+session is dropped rather than re-signed in, and Settings offers Connect again.
+Every request also carries the session cookie, so `perform` sends plain HTTP only
+while `ServerPool.isOnHomeNetwork`: a Plex server was reached on one of its LAN
+addresses since the last network change. Away from home an `http://` Seerr fails
+with `SeerrServiceError.awayFromHomeNetwork` before anything is sent.
+
+Nothing goes to Seerr before `PlexService.isSessionReady`
+(`isAvailableForCurrentContext`, and `IthacaApp.seerrContextID` includes it):
+until the Plex Home check finishes, a persisted member can be the profile while
+the owner's token is the active one, and a re-sign-in would store the owner's
+Seerr session under the member. `PlexService.activeProfileID` is also nil in that
+state. A signed-out context deletes every profile's Seerr sessions, but not while
+the Keychain is locked (`PlexService.credentialsLocked`, or the sessions
+themselves unreadable): before the first unlock after a restart it only looks
+signed out, and the sessions are read again once it unlocks. On tvOS the URL editor is a flat settings row with
 appearance-aware text and the shared row focus treatment. Selecting it opens a
 system text-entry alert and keyboard. Do not put a live `TextField` back inside
 the section card: tvOS forces focused inline text fields into a white editing

@@ -48,8 +48,9 @@ final class LibraryOrderStore {
     private(set) var state: State = .idle
 
     /// True when the plex.tv `experience` blob could not be read (transport or
-    /// auth failure). A missing or unparseable setting is *not* a failure: that
-    /// just means the account never customized its order.
+    /// auth failure, or a setting that exists but cannot be parsed). A missing
+    /// setting is *not* a failure: that just means the account never
+    /// customized its order.
     private(set) var orderUnavailable = false
 
     /// Machine identifiers of the servers that answered `/library/sections`
@@ -226,7 +227,7 @@ final class LibraryOrderStore {
 /// The parsed plex.tv `experience` setting.
 struct PlexExperienceSettings: Sendable {
     /// The whole blob, or nil when the account has no `experience` setting yet
-    /// (or it was unparseable — both mean "never customized").
+    /// ("never customized"). An unparseable setting throws instead.
     var blob: IthacaJSONValue?
     /// `sidebarSettings.pinnedSources`, in sidebar order.
     var pinnedSources: [PlexPinnedSource]

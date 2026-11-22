@@ -55,6 +55,12 @@ final class ServerPool {
     /// Bumped by `suspendPlainHTTPSessions()`. A plain-HTTP result from a probe
     /// that started earlier was confirmed on the network the device left.
     @ObservationIgnored private var plainHTTPEpoch = 0
+    /// Servers a probe reached on one of their LAN addresses since the last
+    /// network change. While there is one, this device is on that server's
+    /// home network: the only place plain HTTP to Athena or Seerr on a local
+    /// address is allowed, since such an address belongs to whoever answers on
+    /// the network the device is on.
+    private(set) var homeNetworkServerIDs: Set<String> = []
 
     @ObservationIgnored private var session: URLSession = .shared
     @ObservationIgnored private var baseHeaders: [String: String] = [:]
@@ -93,11 +99,18 @@ final class ServerPool {
         states.values.contains(.connecting)
     }
 
+    var isOnHomeNetwork: Bool {
+        !homeNetworkServerIDs.isEmpty
+    }
+
     /// Writes a server's state only when it changed. `states` is read by
     /// every view that builds an image URL, and a dictionary subscript set
     /// notifies observers even when the value is identical, so an unchanged
     /// probe result would re-render every visible poster once per server.
     private func setState(_ state: ServerConnectionState, for serverID: String) {
+        if state.connection == nil {
+            homeNetworkServerIDs.remove(serverID)
+        }
         guard states[serverID] != state else { return }
         states[serverID] = state
         stateRevisions[serverID, default: 0] += 1
@@ -380,6 +393,7 @@ final class ServerPool {
     @discardableResult
     func suspendPlainHTTPSessions() -> [String: URL] {
         plainHTTPEpoch &+= 1
+        homeNetworkServerIDs = []
         var suspended: [String: URL] = [:]
         for (serverID, state) in states {
             guard let baseURL = state.connection?.baseURL, baseURL.scheme?.lowercased() == "http" else { continue }
@@ -405,6 +419,7 @@ final class ServerPool {
             UserDefaults.standard.removeObject(forKey: Self.defaultsSnapshotsKey)
         }
         generation &+= 1
+        homeNetworkServerIDs = []
         states = [:]
         servers = [:]
         order = []
@@ -708,6 +723,11 @@ final class ServerPool {
             Self.rememberBaseURL(baseURL, serverID: serverID)
             if states[serverID]?.connection?.token != token {
                 Self.saveToken(token, serverID: serverID)
+            }
+            if httpEpoch == plainHTTPEpoch, connection.local, !connection.relay, connection.isPrivateNetworkAddress {
+                homeNetworkServerIDs.insert(serverID)
+            } else {
+                homeNetworkServerIDs.remove(serverID)
             }
             setState(.connected(
                 PlexServerConnection(

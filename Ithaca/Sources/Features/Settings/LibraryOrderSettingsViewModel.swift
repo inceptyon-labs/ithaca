@@ -37,6 +37,9 @@ final class LibraryOrderSettingsViewModel {
     /// decoration: a single-server account never sees one.
     private(set) var serverLabels: [String: String] = [:]
 
+    /// The Plex Home profile `libraries` was read under. Every write carries
+    /// it, so one that runs after a profile switch is dropped.
+    @ObservationIgnored private var listProfileID: String?
     /// The order waiting for the debounce to elapse, if any.
     @ObservationIgnored private var pendingOrder: [PlexLibrary]?
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
@@ -58,13 +61,29 @@ final class LibraryOrderSettingsViewModel {
             // the account's current order rather than whatever was cached at launch.
             _ = try await plexService.ensureLibraryOrderLoaded(force: true)
             if pendingOrder == nil, writesInFlight == 0 {
-                libraries = plexService.libraryOrder.orderedSections
-                serverLabels = makeServerLabels(for: libraries)
+                showStoredOrder()
             }
         } catch {
             self.error = Self.loadErrorMessage
         }
         isLoading = false
+    }
+
+    /// Rebuilds the list when a server connected or dropped out, or the
+    /// profile changed, after the list was read. Skipped while an edit is
+    /// waiting or being written; that write's own settle picks the change up.
+    func refreshIfServersChanged() {
+        guard !isLoading, pendingOrder == nil, writesInFlight == 0 else { return }
+        let listedServerIDs = Set(libraries.compactMap(\.serverID))
+        guard listedServerIDs != plexService.libraryOrder.machineIdentifiers
+            || listProfileID != plexService.activeProfileID else { return }
+        showStoredOrder()
+    }
+
+    private func showStoredOrder() {
+        libraries = plexService.libraryOrder.orderedSections
+        serverLabels = makeServerLabels(for: libraries)
+        listProfileID = plexService.activeProfileID
     }
 
     /// The row title: the library name, plus its server only when another
@@ -131,24 +150,27 @@ final class LibraryOrderSettingsViewModel {
         debounceTask = nil
         guard let order = pendingOrder else { return }
         pendingOrder = nil
+        // The list cannot be rebuilt while an edit is pending, so this is
+        // still the profile the edit was made under.
+        let profileID = listProfileID
 
         let previous = writeTask
         writesInFlight += 1
         writeTask = Task { [weak self] in
             await previous?.value
-            await self?.write(order)
+            await self?.write(order, profileID: profileID)
         }
     }
 
-    private func write(_ order: [PlexLibrary]) async {
+    private func write(_ order: [PlexLibrary], profileID: String?) async {
         isSaving = true
         defer { writesInFlight -= 1 }
         do {
-            try await plexService.reorderLibraries(order)
+            try await plexService.reorderLibraries(order, profileID: profileID)
             saveError = nil
             // The last write settles the screen on what the account holds.
             if pendingOrder == nil, writesInFlight == 1 {
-                libraries = plexService.libraryOrder.orderedSections
+                showStoredOrder()
             }
         } catch {
             saveError = Self.saveErrorMessage
@@ -157,7 +179,7 @@ final class LibraryOrderSettingsViewModel {
             // newer edit still waiting to be written keeps its visible order;
             // its own write settles the screen.
             if pendingOrder == nil, writesInFlight == 1 {
-                libraries = plexService.libraryOrder.orderedSections
+                showStoredOrder()
             }
         }
         isSaving = false

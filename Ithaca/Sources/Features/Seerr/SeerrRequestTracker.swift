@@ -347,7 +347,7 @@ final class SeerrRequestTracker {
     /// shows the previous profile's requests. Home's polling task restarts on
     /// the new `contextID`.
     func contextDidChange(_ key: String) {
-        if !plexService.isAuthenticated {
+        if !plexService.isAuthenticated, !plexService.credentialsLocked {
             SeerrRequestWatchStore.removeAll()
         }
         defer { self.contextKey = key }

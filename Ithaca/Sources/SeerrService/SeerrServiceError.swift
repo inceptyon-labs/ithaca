@@ -3,6 +3,7 @@ import Foundation
 enum SeerrServiceError: LocalizedError, Equatable {
     case invalidServerURL
     case insecureServerURL
+    case awayFromHomeNetwork
     case serverMismatch
     case notConfigured
     case notConnected
@@ -21,6 +22,8 @@ enum SeerrServiceError: LocalizedError, Equatable {
             "Enter a valid Seerr server URL."
         case .insecureServerURL:
             "Use an https:// address for Seerr outside your local network. Plain http:// would send your Plex sign-in unencrypted."
+        case .awayFromHomeNetwork:
+            "Seerr has an http:// address, so Ithaca only uses it on your home network, while a Plex server answers there. Use an https:// address to reach Seerr from anywhere else."
         case .serverMismatch:
             "This Seerr connection belongs to a different Plex server."
         case .notConfigured:

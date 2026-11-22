@@ -2,6 +2,7 @@ import Foundation
 import Network
 import Observation
 import OSLog
+import UIKit
 
 private let syncLogger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "Ithaca",
@@ -25,6 +26,11 @@ final class OfflinePlaybackSyncManager {
     @ObservationIgnored private var networkMonitor: NWPathMonitor?
     @ObservationIgnored private let networkMonitorQueue = DispatchQueue(label: "com.inceptyon.ithaca.offlinePlaybackSync.networkMonitor")
     @ObservationIgnored private var retryLoopTask: Task<Void, Never>?
+    /// False while `playback-sync.json` exists but cannot be read (data
+    /// protection before the first unlock). Until it loads nothing is saved
+    /// or synced.
+    @ObservationIgnored private var isStateLoaded = false
+    @ObservationIgnored private var stateLoadObservers: [NSObjectProtocol] = []
     /// Called after a forced sync (launch, becoming active, Sync Watch Progress
     /// Now) and after any other sync that sent something, outside a profile
     /// switch: Plex then has every watch state this device could send. Smart
@@ -37,7 +43,10 @@ final class OfflinePlaybackSyncManager {
     ) {
         self.plexService = plexService
         self.store = store
-        storedActions = store.loadSnapshot().actions
+        loadStoredActions()
+        if !isStateLoaded {
+            retryLoadingStoredActionsWhenAvailable()
+        }
         startNetworkMonitoring()
         plexService.watchStateObserver = { [weak self] reports, requestedAt in
             self?.recordPlexWatchStates(reports, requestedAt: requestedAt)
@@ -47,6 +56,32 @@ final class OfflinePlaybackSyncManager {
     deinit {
         networkMonitor?.cancel()
         retryLoopTask?.cancel()
+    }
+
+    private func loadStoredActions() {
+        guard !isStateLoaded, let snapshot = try? store.loadSnapshot() else { return }
+        isStateLoaded = true
+        for observer in stateLoadObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        stateLoadObservers = []
+        storedActions = snapshot.actions
+    }
+
+    /// Becoming active retries too, in case the unlock happened while the app
+    /// was suspended.
+    private func retryLoadingStoredActionsWhenAvailable() {
+        for name in [UIApplication.protectedDataDidBecomeAvailableNotification, UIApplication.didBecomeActiveNotification] {
+            stateLoadObservers.append(NotificationCenter.default.addObserver(
+                forName: name,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.loadStoredActions()
+                }
+            })
+        }
     }
 
     var actions: [OfflinePlaybackSyncAction] {
@@ -184,7 +219,7 @@ final class OfflinePlaybackSyncManager {
     }
 
     func syncPendingActions(force: Bool = false) async {
-        guard !isSyncing else { return }
+        guard isStateLoaded, !isSyncing else { return }
         guard force || !isPreparingProfileSwitch else { return }
         guard force || isNetworkAvailable else { return }
         guard plexService.isSessionReady else { return }
@@ -445,6 +480,8 @@ final class OfflinePlaybackSyncManager {
     }
 
     private func persist() {
+        // Never replace a state file that could not be read.
+        guard isStateLoaded else { return }
         try? store.saveSnapshot(OfflinePlaybackSyncSnapshot(actions: storedActions))
     }
 

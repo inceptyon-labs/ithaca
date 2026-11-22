@@ -28,8 +28,9 @@ struct AthenaShareLink: Equatable {
 }
 
 /// Holds a shared Athena link until the viewer says whether to use it. Saving
-/// it needs a yes: requests to Athena carry the viewer's Plex sign-in, so a
-/// link must never point Describe It somewhere unseen. The yes is also the
+/// it needs a yes: requests to Athena carry the viewer's token for its Plex
+/// server (`AthenaCredentials`), so a link must never point Describe It
+/// somewhere unseen. The yes is also the
 /// consent Pick Something would otherwise ask for (`AthenaConsent`).
 @MainActor @Observable
 final class AthenaLinkInbox {

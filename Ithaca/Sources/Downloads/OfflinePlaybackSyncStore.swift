@@ -7,8 +7,8 @@ struct OfflinePlaybackSyncStore: Sendable {
         self.fileStore = fileStore
     }
 
-    func loadSnapshot() -> OfflinePlaybackSyncSnapshot {
-        fileStore.decodeStateFile(OfflinePlaybackSyncSnapshot.self, at: fileStore.playbackSyncStateFileURL)
+    func loadSnapshot() throws -> OfflinePlaybackSyncSnapshot {
+        try fileStore.decodeStateFile(OfflinePlaybackSyncSnapshot.self, at: fileStore.playbackSyncStateFileURL)
             ?? OfflinePlaybackSyncSnapshot()
     }
 

@@ -54,6 +54,7 @@ final class UserPreferences {
         static let athenaURL = "athenaURL"
         static let foundAthenaURL = "foundAthenaURL"
         static let athenaConsent = "athenaConsent"
+        static let athenaConsentAddress = "athenaConsentAddress"
         /// Before Athena was renamed from Mentor: read when the new key is unset.
         static let legacyMentorURL = "mentorURL"
         static let legacyFoundMentorURL = "foundMentorURL"
@@ -339,11 +340,34 @@ final class UserPreferences {
         athenaURL.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? foundAthenaURL
     }
 
-    /// Whether Describe It may send requests to Athena, which passes them to
-    /// Anthropic's Claude. Asked before the first one (App Review guideline
-    /// 5.1.2(i)); declined, Describe It runs on the device.
+    /// Whether Describe It may send requests, with the viewer's token for
+    /// Athena's Plex server, to the Athena in use, which passes them to Anthropic's Claude. Asked
+    /// before the first one (App Review guideline 5.1.2(i)); declined,
+    /// Describe It runs on the device. The answer belongs to the address it
+    /// was given for: another Athena, typed, found or shared, is asked about
+    /// again.
     var athenaConsent: AthenaConsent {
-        didSet { UserDefaults.standard.set(athenaConsent.rawValue, forKey: Keys.athenaConsent) }
+        get {
+            athenaConsentAddress == Self.athenaConsentKey(athenaAddress) ? storedAthenaConsent : .undecided
+        }
+        set {
+            storedAthenaConsent = newValue
+            athenaConsentAddress = Self.athenaConsentKey(athenaAddress)
+        }
+    }
+
+    private var storedAthenaConsent: AthenaConsent {
+        didSet { UserDefaults.standard.set(storedAthenaConsent.rawValue, forKey: Keys.athenaConsent) }
+    }
+
+    /// The Athena `storedAthenaConsent` was given for, as `AthenaClient`
+    /// normalizes it. Empty for an answer from before consent had an address.
+    private var athenaConsentAddress: String {
+        didSet { UserDefaults.standard.set(athenaConsentAddress, forKey: Keys.athenaConsentAddress) }
+    }
+
+    private static func athenaConsentKey(_ address: String) -> String {
+        AthenaClient(address: address)?.baseURL.absoluteString ?? ""
     }
 
     /// tvOS: a movie or show page plays its trailer, muted, behind the hero
@@ -534,10 +558,11 @@ final class UserPreferences {
         self.asksForRatings = defaults.object(forKey: Keys.asksForRatings) as? Bool ?? true
         self.athenaURL = defaults.string(forKey: Keys.athenaURL) ?? defaults.string(forKey: Keys.legacyMentorURL) ?? ""
         self.foundAthenaURL = defaults.string(forKey: Keys.foundAthenaURL) ?? defaults.string(forKey: Keys.legacyFoundMentorURL) ?? ""
-        self.athenaConsent = AthenaConsent(
+        self.storedAthenaConsent = AthenaConsent(
             rawValue: defaults.integer(forKey: defaults.object(forKey: Keys.athenaConsent) == nil
                 ? Keys.legacyMentorConsent : Keys.athenaConsent)
         ) ?? .undecided
+        self.athenaConsentAddress = defaults.string(forKey: Keys.athenaConsentAddress) ?? ""
         self.trailerPreviewsEnabled = defaults.object(forKey: Keys.trailerPreviewsEnabled) as? Bool ?? true
         self.downloadMaxResolution = downloadMaxResolution
         self.downloadsWifiOnly = downloadsWifiOnly

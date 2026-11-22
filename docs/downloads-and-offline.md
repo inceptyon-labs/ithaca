@@ -50,8 +50,15 @@ no record of that profile remains, and `Artwork/`, `ResumeData/` and the rest of
 `Metadata/` once no record of any profile remains. `downloads.json` and
 `playback-sync.json` are never removed (a file that fails to decode is moved to
 `<name>.unreadable`, replacing an older one, and logged as an error; the app then
-starts empty), and Delete All drops only synced watch
-actions: pending ones stay and still sync. The removal bumps `storageRevision`,
+starts empty). A file that exists but cannot be read (any error other than
+no-such-file, such as data protection before the first unlock after a reboot) is
+left in place: `decodeStateFile` throws and the owning manager starts empty with
+`isStateLoaded` false. Until it loads, neither manager saves; `DownloadManager`
+does not create the transfer session (so no background task is cancelled as
+unmatched) or run the queue, and `OfflinePlaybackSyncManager` does not sync. Both
+retry on `protectedDataDidBecomeAvailableNotification` and
+`didBecomeActiveNotification`, then run their normal launch steps. Delete All
+drops only synced watch actions: pending ones stay and still sync. The removal bumps `storageRevision`,
 which `storageUsageBytes` reads, so Settings shows the freed space. It runs
 synchronously on the main actor right after those checks, and is skipped while a queue request is in
 flight (it may have cached metadata for a record it has not stored yet).
@@ -163,6 +170,8 @@ live background task keeps running (`.downloading`), and
 profile other than the active one. A background relaunch without a scene leaves
 transfers running. Task descriptions carry the record
 `globalKey`; use them for relaunch reconciliation instead of task ids.
+Reconciliation, and the session itself, wait until `downloads.json` has loaded
+(see File Store Layout).
 
 Network constraints are split between URLSession configuration and
 `DownloadManager`'s `NWPathMonitor`. When Wi-Fi Only is enabled and the network

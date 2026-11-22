@@ -83,7 +83,11 @@ extension PlexService {
     /// Throws on a plex.tv failure.
     func refreshLibraryOrder() async throws {
         let identity = libraryOrderCacheIdentity
+        let profileID = activeProfileID
         let experience = try await fetchExperienceSettings()
+        // A profile switch while plex.tv answered: the blob belongs to the
+        // previous member and must not land in the new member's cache.
+        guard activeProfileID == profileID else { throw CancellationError() }
         libraryOrder.apply(experience: experience, identity: identity)
     }
 
@@ -91,9 +95,14 @@ extension PlexService {
     ///
     /// `ordered` must be EVERY section of every connected server in the new
     /// order, including sections Ithaca cannot browse (music, photos) — anything
-    /// left out would lose its pin. Writes are serialized; each one re-reads the
-    /// blob first and never writes from cache.
-    func reorderLibraries(_ ordered: [PlexLibrary]) async throws {
+    /// left out would lose its pin. A server with no section in `ordered` is
+    /// left untouched. Writes are serialized; each one re-reads the blob first
+    /// and never writes from cache.
+    ///
+    /// `profileID` is the profile the order was edited under. A write that
+    /// runs after a Plex Home switch is dropped instead of landing in the
+    /// other member's account.
+    func reorderLibraries(_ ordered: [PlexLibrary], profileID: String?) async throws {
         let previous = libraryOrder.writeTask
 
         let task = Task { @MainActor [weak self] () throws -> Void in
@@ -101,7 +110,7 @@ extension PlexService {
             // not skip the queue for the next one.
             _ = await previous?.result
             guard let self else { return }
-            try await self.performLibraryReorder(ordered)
+            try await self.performLibraryReorder(ordered, profileID: profileID)
         }
         libraryOrder.writeTask = task
 
@@ -258,7 +267,11 @@ extension PlexService {
 
     // MARK: - Write
 
-    private func performLibraryReorder(_ ordered: [PlexLibrary]) async throws {
+    private func performLibraryReorder(_ ordered: [PlexLibrary], profileID: String?) async throws {
+        guard activeProfileID == profileID else {
+            plexAuthLogger.notice("Library order: dropped a write queued before a profile switch")
+            throw CancellationError()
+        }
         guard let token = activeAccountToken?.nilIfEmpty else {
             throw PlexServiceError.notAuthenticated
         }
@@ -268,11 +281,14 @@ extension PlexService {
         // whose fetch failed looks identical to one with no libraries, and
         // writing that would unpin its libraries in every Plex client the
         // account uses. The same goes for a server that answered with nothing
-        // (`LibraryOrderStore.machineIdentifiers` leaves it out) and for one
-        // that is not connected at all.
+        // (`LibraryOrderStore.machineIdentifiers` leaves it out), for one
+        // that is not connected at all, and for one with no section in
+        // `ordered`: a server that connected after the Library Order screen
+        // built its list would otherwise lose every pin.
+        let listedServerIDs = Set(ordered.compactMap(\.serverID))
         var servers: [String: PlexServer] = [:]
         for serverID in libraryOrder.machineIdentifiers
-        where !libraryOrder.failedServerIDs.contains(serverID) {
+        where listedServerIDs.contains(serverID) && !libraryOrder.failedServerIDs.contains(serverID) {
             guard let server = pool.server(for: serverID) else { continue }
             servers[serverID] = server
         }
@@ -282,6 +298,7 @@ extension PlexService {
 
         // Never write from cache: plex.tv is last-writer-wins and other clients
         // (or another Ithaca device) may have changed the blob since the load.
+        // Throws if the profile switched while it read.
         try await refreshLibraryOrder()
 
         let existing = libraryOrder.pinnedSources
@@ -300,10 +317,17 @@ extension PlexService {
         // account) and touch nothing but pinnedSources / hasCompletedSetup.
         // schemaVersion, homeSettings, reminders, autoPinnedProviders and every
         // unknown key round-trip verbatim; inventing a schemaVersion would
-        // disable syncing in other Plex clients.
+        // disable syncing in other Plex clients. A blob that is not an object
+        // cannot be edited in place, so the write is refused rather than
+        // replacing it.
         var blob = libraryOrder.experienceBlob ?? .object([:])
-        if blob.objectValue == nil {
-            blob = .object([:])
+        guard blob.objectValue != nil else {
+            plexAuthLogger.notice("Library order: experience setting on plex.tv is not an object")
+            throw PlexServiceError.decodingError("Unreadable plex.tv experience setting")
+        }
+        if let existing = blob["sidebarSettings"], existing != .null, existing.objectValue == nil {
+            plexAuthLogger.notice("Library order: sidebarSettings on plex.tv is not an object")
+            throw PlexServiceError.decodingError("Unreadable plex.tv sidebar settings")
         }
         var sidebarSettings = blob["sidebarSettings"]?.objectValue ?? [:]
         sidebarSettings["pinnedSources"] = .array(merged.map(\.raw))
@@ -327,10 +351,13 @@ extension PlexService {
         }
 
         // `rawPlexTVRequest` only returns for a 2xx, so this point is success.
-        libraryOrder.commitWrite(pinnedSources: merged, blob: blob)
         plexAuthLogger.notice(
             "Library order: wrote \(merged.count, privacy: .public) pinned sources to plex.tv"
         )
+        // The POST went out with the edit's own token. A switch while it was in
+        // flight leaves the cache to the new member.
+        guard activeProfileID == profileID else { return }
+        libraryOrder.commitWrite(pinnedSources: merged, blob: blob)
     }
 
     /// Builds the doubly-stringified payload Plex Web posts:

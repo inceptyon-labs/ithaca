@@ -23,7 +23,16 @@ enum KeychainHelper {
         return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
     }
 
-    static func load(key: String) -> Data? {
+    enum Read {
+        case found(Data)
+        case missing
+        /// The device hasn't been unlocked since it started, so no item can be
+        /// read yet. Not the same as no item: nothing may be deleted or
+        /// written over because of it.
+        case locked
+    }
+
+    static func read(key: String) -> Read {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -33,10 +42,19 @@ enum KeychainHelper {
         ]
 
         var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess else {
-            return nil
+        switch SecItemCopyMatching(query as CFDictionary, &result) {
+        case errSecSuccess:
+            return (result as? Data).map(Read.found) ?? .missing
+        case errSecInteractionNotAllowed:
+            return .locked
+        default:
+            return .missing
         }
-        return result as? Data
+    }
+
+    static func load(key: String) -> Data? {
+        guard case let .found(data) = read(key: key) else { return nil }
+        return data
     }
 
     /// Moves items written by earlier versions (`AfterFirstUnlock`, which a

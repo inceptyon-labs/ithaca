@@ -17,6 +17,14 @@ struct AthenaClient: Sendable {
         baseURL = url
     }
 
+    /// Plain HTTP goes only to a local address, which belongs to whoever
+    /// answers on the network the device is on: callers send to it only while
+    /// a Plex server confirms that is its home network
+    /// (`ServerPool.isOnHomeNetwork`).
+    var isPlainHTTP: Bool {
+        baseURL.scheme == "http"
+    }
+
     /// True for an address that is well formed but refused for being plain
     /// HTTP to a host outside the home network.
     static func refusesAsInsecure(_ address: String) -> Bool {
@@ -47,12 +55,11 @@ struct AthenaClient: Sendable {
     }
 
     /// Up to `request.count` picks and `request.suggest` suggestions, best fit
-    /// first.
-    ///
-    /// - Parameter plexToken: the active profile's plex.tv account token (not a
-    ///   server's access token). Athena asks plex.tv whether that account can
-    ///   reach its Plex server. nil sends no header.
-    func pick(_ request: AthenaPickRequest, plexToken: String? = nil) async throws -> AthenaAnswer {
+    /// first. Asks `/healthz` first which Plex server Athena belongs to, and
+    /// sends only the viewer's token for that server (`AthenaCredentials`).
+    func pick(_ request: AthenaPickRequest, credentials: AthenaCredentials) async throws -> AthenaAnswer {
+        let health = try await health()
+        let plexToken = try credentials.token(for: health, athena: baseURL)
         var urlRequest = URLRequest(url: baseURL.appending(path: "v1/pick"), timeoutInterval: 90)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -99,9 +106,53 @@ struct AthenaClient: Sendable {
     }
 }
 
+/// The viewer's tokens for their Plex servers, of which Athena gets the one
+/// for its own server only: a server token opens that server alone, and its
+/// owner already controls it. Never the account token, which would open the
+/// viewer's whole Plex account to whoever runs Athena.
+///
+/// A server the viewer owns is the exception: plex.tv's token for it *is* the
+/// account token. Anyone can claim in `/healthz` to sit beside a server they
+/// know the identifier of, so that token goes only to an Athena at one of the
+/// server's own addresses, or at a local address while the device is on that
+/// server's network.
+struct AthenaCredentials: Sendable {
+    /// The active profile's token for each server, by machine identifier.
+    var serverTokens: [String: String] = [:]
+    /// The viewer's own servers, by machine identifier: their addresses as
+    /// plex.tv lists them, and whether a probe reached one on its LAN since
+    /// the last network change (`ServerPool.homeNetworkServerIDs`).
+    var ownedServers: [String: OwnedServer] = [:]
+
+    struct OwnedServer: Sendable {
+        var hosts: Set<String>
+        var isOnItsNetwork: Bool
+    }
+
+    /// nil for an Athena with no Plex server chosen, which answers that itself.
+    func token(for health: AthenaHealth, athena url: URL) throws -> String? {
+        guard let server = health.server?.nilIfEmpty else { return nil }
+        let host = (url.host(percentEncoded: false) ?? "").lowercased()
+        let label = url.port.map { "\(host):\($0)" } ?? host
+        guard let token = serverTokens[server] else { throw AthenaError.plexAccessRequired(host: label) }
+        if let owned = ownedServers[server] {
+            guard owned.hosts.contains(host) || (owned.isOnItsNetwork && LocalNetwork.isLocalHost(host)) else {
+                throw AthenaError.notBesideOwnServer(host: label)
+            }
+            return token
+        }
+        guard health.serverTokens == true else { throw AthenaError.needsUpdate(host: label) }
+        return token
+    }
+}
+
 enum AthenaError: LocalizedError {
     case unreachable(host: String)
     case plexAccessRequired(host: String)
+    /// An Athena that checks account tokens only, which Ithaca no longer sends
+    /// to a server someone else owns.
+    case needsUpdate(host: String)
+    case notBesideOwnServer(host: String)
     case server(String)
     case noLibrary
 
@@ -109,6 +160,8 @@ enum AthenaError: LocalizedError {
         switch self {
         case .unreachable(let host): "Couldn't reach Athena at \(host)."
         case .plexAccessRequired(let host): "Athena at \(host) only answers people with access to its Plex server."
+        case .needsUpdate(let host): "Athena at \(host) needs an update, and its owner to sign in to its web page once, before it can answer people its Plex server is shared with."
+        case .notBesideOwnServer(let host): "Athena at \(host) says it runs beside your Plex server, but that isn't one of the server's addresses. Use the Plex machine's address, like 192.168.1.10:8800."
         case .server(let message): message
         case .noLibrary: "Couldn't read your libraries."
         }
@@ -237,8 +290,12 @@ struct AthenaHealth: Decodable, Sendable {
     /// its port. Older Athenas don't send it.
     let service: String?
     /// The machine identifier of the Plex Media Server Athena checks sign-ins
-    /// against. Informational; absent on older servers or without Plex set up.
+    /// against: the server whose token a pick carries. Absent on older servers
+    /// or without Plex set up.
     let server: String?
+    /// Whether a viewer's token for that server is enough. Older Athenas check
+    /// account tokens only and don't send it.
+    let serverTokens: Bool?
 }
 
 private struct AthenaErrorBody: Decodable {

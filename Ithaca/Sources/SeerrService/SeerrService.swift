@@ -13,6 +13,10 @@ final class SeerrService {
     private let encoder: JSONEncoder
 
     private var storedSessions: [SeerrStoredSession]
+    /// The Keychain was locked when the sessions were read (before the first
+    /// unlock after a restart): they are read again before use and never saved
+    /// over meanwhile.
+    private var storedSessionsLocked = false
     private(set) var configuredBaseURL: URL?
     private(set) var configuredPlexServerID: String?
     private(set) var currentUser: SeerrUser?
@@ -49,7 +53,9 @@ final class SeerrService {
 
         self.decoder = JSONDecoder()
         self.encoder = JSONEncoder()
-        self.storedSessions = SeerrCredentialStore.load()
+        let storedSessions = SeerrCredentialStore.load()
+        self.storedSessions = storedSessions ?? []
+        self.storedSessionsLocked = storedSessions == nil
 
         if let value = UserDefaults.standard.string(forKey: Self.defaultsBaseURLKey) {
             self.configuredBaseURL = URL(string: value)
@@ -77,8 +83,12 @@ final class SeerrService {
     /// which is stable across launches and outages — unlike the pool's primary
     /// connection, which is nil until a server answers and moves to the next
     /// server whenever the top one is offline.
+    ///
+    /// Nothing is sent before the Plex session is ready: until the Home check
+    /// finishes, the profile and the token can belong to different people,
+    /// and a re-sign-in would store one person's Seerr session under the other.
     var isAvailableForCurrentContext: Bool {
-        isConnected && plexService.activeProfileID != nil
+        isConnected && plexService.isSessionReady
     }
 
     var connectionSubtitle: String {
@@ -100,11 +110,19 @@ final class SeerrService {
         publicSettings = nil
         lastConnectionError = nil
 
+        if storedSessionsLocked, let sessions = SeerrCredentialStore.load() {
+            storedSessions = sessions
+            storedSessionsLocked = false
+        }
+        // Signed out deletes every profile's sessions, but a Keychain that is
+        // still locked only looks signed out.
         guard plexService.isAuthenticated else {
+            guard !plexService.credentialsLocked, !storedSessionsLocked else { return }
             storedSessions = []
             SeerrCredentialStore.removeAll()
             return
         }
+        guard !storedSessionsLocked else { return }
 
         rekeyLegacyServerIdentifiers()
 
@@ -746,6 +764,7 @@ final class SeerrService {
         #if DEBUG
         if ScreenshotMode.seerrBaseURL != nil { return }
         #endif
+        guard !storedSessionsLocked else { return }
         if storedSessions.contains(stored) {
             return
         }
@@ -758,6 +777,7 @@ final class SeerrService {
         #if DEBUG
         if ScreenshotMode.seerrBaseURL != nil { return }
         #endif
+        guard !storedSessionsLocked else { return }
         let count = storedSessions.count
         storedSessions.removeAll(where: shouldRemove)
         guard storedSessions.count != count else { return }
@@ -833,9 +853,17 @@ final class SeerrService {
         guard let url = endpointURL(baseURL: baseURL, path: path, queryItems: queryItems) else {
             throw SeerrServiceError.invalidServerURL
         }
-        // Sign-in posts the Plex token, so plain HTTP never leaves the LAN.
-        if url.scheme?.lowercased() == "http", !LocalNetwork.isLocalHost(url.host ?? "") {
-            throw SeerrServiceError.insecureServerURL
+        // Sign-in posts the Plex token and every request carries the session
+        // cookie, so plain HTTP goes only to a local address, and only while a
+        // Plex server confirms this is its home network: away from home the
+        // same address belongs to whoever answers there.
+        if url.scheme?.lowercased() == "http" {
+            guard LocalNetwork.isLocalHost(url.host ?? "") else {
+                throw SeerrServiceError.insecureServerURL
+            }
+            guard plexService.pool.isOnHomeNetwork else {
+                throw SeerrServiceError.awayFromHomeNetwork
+            }
         }
 
         var request = URLRequest(url: url)

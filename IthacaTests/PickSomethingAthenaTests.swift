@@ -75,6 +75,32 @@ struct PickSomethingAthenaTests {
         #expect(!AthenaClient.refusesAsInsecure(""))
     }
 
+    @Test("Athena gets the token for its own server only; an owned server's token, the account token, only on that server's addresses")
+    func athenaGetsOnlyItsServersToken() throws {
+        let credentials = AthenaCredentials(
+            serverTokens: ["mine": "account-token", "friends": "friend-share"],
+            ownedServers: ["mine": .init(hosts: ["192.168.1.10", "203.0.113.7"], isOnItsNetwork: false)]
+        )
+        func health(_ server: String?, serverTokens: Bool? = nil) -> AthenaHealth {
+            AthenaHealth(ok: true, ready: true, model: "m", service: "athena", server: server, serverTokens: serverTokens)
+        }
+        let friendsAthena = try #require(URL(string: "https://athena.friend.example"))
+        #expect(try credentials.token(for: health("friends", serverTokens: true), athena: friendsAthena) == "friend-share")
+        #expect(throws: AthenaError.self) { try credentials.token(for: health("friends"), athena: friendsAthena) }
+        #expect(throws: AthenaError.self) { try credentials.token(for: health("unknown", serverTokens: true), athena: friendsAthena) }
+        #expect(try credentials.token(for: health(nil), athena: friendsAthena) == nil)
+
+        // Claiming the viewer's own server doesn't get the account token anywhere else.
+        #expect(throws: AthenaError.self) { try credentials.token(for: health("mine", serverTokens: true), athena: friendsAthena) }
+        let besideServer = try #require(URL(string: "http://192.168.1.10:8800"))
+        #expect(try credentials.token(for: health("mine"), athena: besideServer) == "account-token")
+        let byName = try #require(URL(string: "http://uranus:8800"))
+        #expect(throws: AthenaError.self) { try credentials.token(for: health("mine"), athena: byName) }
+        var atHome = credentials
+        atHome.ownedServers["mine"]?.isOnItsNetwork = true
+        #expect(try atHome.token(for: health("mine"), athena: byName) == "account-token")
+    }
+
     // MARK: - Fixtures
 
     /// An item as the slim library listing returns it.

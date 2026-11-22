@@ -104,7 +104,7 @@ struct PickSomethingView: View {
             Button("Use Athena") { viewModel.answerAthenaConsent(true, for: request) }
             Button("Use This Device") { viewModel.answerAthenaConsent(false, for: request) }
         } message: { _ in
-            Text("Athena at \(viewModel.athenaAwaitingConsent ?? "your server") sends what you type, and the titles in your library that fit, to Anthropic's Claude to choose from. On this device, nothing leaves it. You can change this in Settings → Athena.")
+            Text("Describe It will send what you type, the titles in your library that fit, and your sign-in for its Plex server, which works on that server only, to Athena at \(viewModel.athenaAwaitingConsent ?? "your server"), which passes the request to Anthropic's Claude. On this device, nothing leaves it. You can change this in Settings → Athena.")
         }
         #if os(tvOS)
         .fullScreenCover(item: pinMemberBinding) { member in

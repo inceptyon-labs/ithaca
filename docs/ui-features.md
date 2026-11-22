@@ -862,13 +862,22 @@ in Ithaca. Read this with `docs/codebase-map.md`, `STYLE.md`, and `docs/data-and
   the load is skipped once `libraries` is filled, and `load()` never overwrites the list
   while an edit is pending or a write is in flight. A successful last write re-syncs the
   list to `PlexService.libraryOrder.orderedSections`.
+- When the cache's server set (`libraryOrder.machineIdentifiers`) or the active profile
+  changes after the list was read, `refreshIfServersChanged()` rebuilds the list from the
+  cache, again only when no edit is pending or in flight.
+- Each write carries the profile the list was read under. `reorderLibraries` drops a
+  write that runs after a Plex Home switch, so a queued edit never lands in the next
+  member's account.
 - A failed write reverts the list to `PlexService.libraryOrder.orderedSections` and
   shows an inline message; showing the rejected order would lie about what the other
   Plex apps will do. A failed load shows `FeatureErrorView` with Retry.
 - The order is read and written through `PlexService`; the view model never talks to
-  plex.tv itself. Entries for disabled servers, cloud providers, and servers whose
-  sections failed to load are carried through untouched — never write an order for a
-  server Ithaca could not read. Storage format and traps: `docs/data-and-plex.md`.
+  plex.tv itself. Entries for disabled servers, cloud providers, servers whose
+  sections failed to load, and servers with no library in the list being written (one
+  that connected after the screen read its list) are carried through untouched — never
+  write an order for a server Ithaca could not read or the user did not see. An
+  `experience` value that is not a JSON object refuses the write instead of being
+  replaced. Storage format and traps: `docs/data-and-plex.md`.
 - Clips never enter the cinematic hero rotation (`HomeViewModel.heroItems()` filters
   `isClip` — frame grabs read poorly full-bleed). They stay visible in hub rows, where
   an all-clip hub (`isVideoHub`) renders as a 16:9 carousel.
@@ -1223,19 +1232,32 @@ in Ithaca. Read this with `docs/codebase-map.md`, `STYLE.md`, and `docs/data-and
   `AthenaSettingsView`: Athena's address (`UserPreferences.athenaURL`, plain HTTP
   when typed without a scheme), a status row from `GET /healthz` (ready, no
   API key on the server, or unreachable), and Use Athena for Describe It
-  (`athenaConsent`). Every pick carries `X-Plex-Token`: the active profile's plex.tv
-  account token (`PlexService.activeAccountToken`, the Home user's token when a
-  Home profile is active; never a server access token). Athena asks plex.tv
-  whether that account can reach its own Plex server (`/healthz` `server`
-  names it, informational for the app). A 401 reads "Athena at <host> only
-  answers people with access to its Plex server."
+  (`athenaConsent`). The consent belongs to the address it was given for
+  (`athenaConsentAddress`, normalized by `AthenaClient`): a different Athena,
+  typed, found or shared, is asked about again, and every consent text names
+  the Plex sign-in it sends. An `http://` Athena is used only while
+  `ServerPool.isOnHomeNetwork` (a Plex server was reached on one of its LAN
+  addresses since the last network change); elsewhere Describe It runs on the
+  device and Settings says why. Every pick first asks `/healthz` which Plex server
+  Athena belongs to (`server`), then carries `X-Plex-Token`: the active
+  profile's token for that server only (`AthenaCredentials`, from the pool or
+  the Keychain), never the plex.tv account token, which would open the viewer's
+  whole Plex account to whoever runs Athena. Athena checks it against plex.tv's
+  list of who its server is shared with (`/healthz` `serverTokens`); an older
+  Athena without that flag gets nothing from someone it is shared with ("needs
+  an update"). For a server the viewer owns, plex.tv's token is the account
+  token itself, so it goes only to an Athena at one of that server's own
+  addresses, or at a local address while a probe confirmed the device is on
+  that server's network; `/healthz` can claim any server. No token for
+  Athena's server, or a 401, reads "Athena at <host> only answers people with
+  access to its Plex server."
 - A shared link sets Athena's address: `ithaca://athena?url=<https address>`
   (`AthenaShareLink`), from Athena's Share page as a link or a QR code. iOS
   declares the `ithaca` scheme for it; tvOS already had it for Top Shelf, and
   `IthacaApp`'s `onOpenURL` tries `AthenaLinkInbox` first. Only an HTTPS
   address and nothing else in the link is accepted. Nothing is saved until the
   viewer answers an alert that names the host and says the request and their
-  Plex sign-in go there; "Use Athena" saves the address and counts as the
+  sign-in for its Plex server go there; "Use Athena" saves the address and counts as the
   consent (`athenaConsent = .allowed`), so Pick Something doesn't ask again.
 - Ithaca Pro, above Integrations, opens `ProView`: the trial, the one-time
   purchase and Restore Purchase (`IthacaStore`, StoreKit 2: the free
@@ -1249,7 +1271,8 @@ in Ithaca. Read this with `docs/codebase-map.md`, `STYLE.md`, and `docs/data-and
   Athena is looked for on port 8800 each time the connected servers change
   (`MainTabView`) and must answer `/healthz` with `service: "athena"` (older servers say `"mentor"`, also accepted). The last
   one found is kept (`UserPreferences.foundAthenaURL`), so it still works away
-  from home, and a typed address always wins (`athenaAddress`). Seerr is looked
+  from home (where an `http://` address is not used), and a typed address always
+  wins (`athenaAddress`). Seerr is looked
   for on ports 5055 and 5056 when its screen opens with nothing configured, and
   must answer `api/v1/settings/public` as initialized with Plex sign-in. The
   field is filled in and each profile still taps Connect with Plex once.
