@@ -85,12 +85,12 @@ Sizes (Apple's screenshot specifications page, read 2026-11-20). Up to 10 per si
 
 ## Rejection risks, most likely first
 
-- 2.3.1, a feature in the screenshots the reviewer can't reach: slide 3 shows Seerr requests, and the demo Seerr is only on the home network. The review notes say Seerr is an optional companion server; giving the reviewer a reachable Seerr would remove the risk.
+- 2.3.1, a feature in the screenshots the reviewer can't reach: slide 3 shows Seerr requests. Handled 2026-11-21: the review notes give the public Seerr (`seer.jplex.us`, through Cloudflare), where the review account signs in with Plex as a request-only user.
 - 2.1, reviewer can't sign in or the library is empty: the demo account and a library that answers from outside the house.
 - 2.1 / 3.1.1, Pro features the reviewer can't reach: see the open decision in section 0.
 - 4.1 / 4.3, resemblance to Dusk for Plex, which Ithaca descends from (MIT, credited in `ThirdPartyNotices.txt`): own name, icon, screenshots and copy.
 - 5.1.2(i), Describe It sending text to a third-party AI: the consent prompt and the privacy policy.
-- 5.2, Plex trademark: "for Plex", no logo, unofficial stated.
+- 5.2, Plex trademark: "for Plex", no logo, unofficial stated. Slide 1 and the header said "The Plex app you wanted" until 2026-11-21, which read as Plex's own app; they now say "The player your Plex deserves."
 - 5.2.1, third-party artwork in screenshots: avoided with the public-domain and Blender library.
 
 ## Sources

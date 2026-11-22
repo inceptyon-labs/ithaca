@@ -55,9 +55,9 @@ Draft text for App Store Connect, with options where a pick is needed. Limits ar
 
 Open in this draft: the Picture in Picture, Siri and Live TV wording needs checking against the app before this ships.
 
-**Keywords** (100 bytes; "Ithaca", "for" and "Plex" are already in the name, so they aren't repeated)
+**Keywords** (100 bytes; "Ithaca", "for" and "Plex" are already in the name, so they aren't repeated; no other app names or Apple marks, so `seerr` and `siri` came out on 2026-11-21)
 
-> media server,player,dolby vision,atmos,hdr,4k,mkv,remux,movies,tv shows,live tv,home theater,seerr
+> media server,player,dolby vision,atmos,hdr,4k,mkv,remux,movies,tv shows,live tv,home theater,nas
 
 **Support URL:** https://inceptyon.io/ithaca/support
 
@@ -71,7 +71,7 @@ Same description, with the first section led by the living room:
 
 **Keywords** (tvOS)
 
-> media server,player,dolby vision,atmos,hdr,4k,mkv,remux,movies,tv shows,live tv,home theater,siri
+> media server,player,dolby vision,atmos,hdr,4k,mkv,remux,movies,tv shows,live tv,home theater,nas
 
 ## App Review Information
 
@@ -84,7 +84,7 @@ Same description, with the first section led by the living room:
 >
 > Ithaca Pro unlocks Describe It: on Home, open Pick Something and tap the field at the top ("Describe what you're in the mood for"), or go to Settings → Ithaca Pro. Start the free 7-day trial there ("7-Day Trial" in-app purchase, free), then try "a short animated movie" or "old silent horror". Describe It runs on the device (Apple's on-device model where Apple Intelligence is on, built-in matching elsewhere); nothing is sent to us. After the trial, Ithaca Pro is a one-time purchase covering iPhone, iPad and Apple TV.
 >
-> Seerr is an optional companion server the user runs at home; requests appear once it is set up in Settings → Seerr. Athena (github.com/inceptyon-labs/athena) is another, optional one that lets Claude answer Describe It instead of the device; nothing else needs it.
+> Requesting titles (the third screenshot) uses Seerr, an optional companion server. A Seerr for review is online: in Settings → Seerr, enter seer.jplex.us as the Server URL, then Connect with Plex. Ithaca signs in to it with the same review account, which can request but not approve, so requests wait in our queue. Athena (github.com/inceptyon-labs/athena) is another, optional one that lets Claude answer Describe It instead of the device; nothing else needs it.
 
 ## App Privacy
 

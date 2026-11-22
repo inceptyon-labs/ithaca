@@ -33,7 +33,7 @@ SLIDES = [
          art_by=dict(ipad="sintel-art.jpg", tv="sintel-art.jpg", duo="sintel-art.jpg"),
          place=dict(phone=(-888, -432, 2991), ipad=(-952, 0, 3972), duo=(-264, -2, 3131)),
          tag="No ads. Every screen in the house.",
-         title=("The Plex app", "you wanted<em>.</em>"),
+         title=("The player", "your Plex deserves<em>.</em>"),
          bill=["INCEPTYON LABS <i>PRESENTS</i> ITHACA FOR PLEX <i>DIRECT PLAY FROM</i> YOUR OWN SERVER",
                "<i>PICTURE IN</i> DOLBY VISION · HDR10+ · HDR10 <i>SOUND IN</i> DOLBY ATMOS · DTS-HD MA",
                "<i>SUBTITLES IN</i> PGS AND SRT <i>WITH</i> NO ADS · NO TRACKING · NO PROMOTED CONTENT",
@@ -252,12 +252,12 @@ body {{ position: relative; background: {BLACK}; color: #fff; -webkit-font-smoot
           rgba(11,11,13,.45), rgba(11,11,13,.15) 75%, rgba(11,11,13,0)); }}
 .safe {{ position: absolute; left: {sx}px; top: {sy}px; width: {sw}px; height: {sh}px; display: flex; flex-direction: column;
          align-items: center; justify-content: center; text-align: center; }}
-h1 {{ font: 400 210px/.88 Anton; text-transform: uppercase; }}
+h1 {{ font: 400 168px/.9 Anton; text-transform: uppercase; white-space: nowrap; }}
 h1 em {{ font-style: normal; margin-right: -.236em; }}
 .bill {{ margin-top: 48px; font: 64px/1 "Six Caps"; letter-spacing: .06em; color: rgba(255,255,255,.86); }}
 """
     body = (f'<img class="art" src="{art}"><div class="tint"></div><div class="scrim"></div><div class="safe">'
-            '<h1>The Plex app<br>you wanted<em>.</em></h1>'
+            '<h1>The player<br>your Plex deserves<em>.</em></h1>'
             '<p class="bill">ITHACA FOR PLEX · APPLE TV · IPHONE · IPAD · NO ADS</p></div>')
     return f"<!doctype html><html><head><meta charset='utf-8'><style>{css}</style></head><body>{body}</body></html>"
 
