@@ -1,2 +1,1 @@
-- Play a Dolby TrueHD track and confirm the audio sounds right.
-- Try a few other audio tracks (Atmos, Dolby Digital) and check that they still play normally.
+- Fixes behind the scenes; nothing new to try.
