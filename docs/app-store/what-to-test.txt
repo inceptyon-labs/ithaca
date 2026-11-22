@@ -1,1 +1,1 @@
-- Fixes behind the scenes; nothing new to try.
+- The iPhone and iPad layouts now include screenshots and layouts made for the Surface Duo's two screens; on a Duo, check that the iPad layout fits the inner screen.
